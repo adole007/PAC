@@ -1133,6 +1133,20 @@ const MedicalImageViewer = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const patientSearchRef = useRef(null);
 
+  // Filter patients based on search term for Medical Image Viewer
+  const filteredPatientsForViewer = patients.filter(patient => {
+    if (!patientSearchTerm) return true;
+    
+    const searchLower = patientSearchTerm.toLowerCase();
+    return (
+      patient.first_name.toLowerCase().includes(searchLower) ||
+      patient.last_name.toLowerCase().includes(searchLower) ||
+      `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchLower) ||
+      patient.patient_id.toLowerCase().includes(searchLower) ||
+      patient.medical_record_number.toLowerCase().includes(searchLower)
+    );
+  });
+
   useEffect(() => {
     fetchPatients();
   }, []);
