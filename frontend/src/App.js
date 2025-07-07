@@ -23,11 +23,50 @@ import {
   Download,
   Ruler,
   Move,
-  MousePointer
+  MousePointer,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+// Theme Context
+const ThemeContext = React.createContext();
+
+const ThemeProvider = ({ children }) => {
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default to dark mode
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('pac-theme');
+    if (savedTheme) {
+      setIsDarkMode(savedTheme === 'dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    localStorage.setItem('pac-theme', newTheme ? 'dark' : 'light');
+  };
+
+  const value = {
+    isDarkMode,
+    toggleTheme
+  };
+
+  return (
+    <ThemeContext.Provider value={value}>
+      <div className={isDarkMode ? 'dark-theme' : 'light-theme'}>
+        {children}
+      </div>
+    </ThemeContext.Provider>
+  );
+};
+
+const useTheme = () => {
+  return React.useContext(ThemeContext);
+};
 
 // Authentication Context
 const AuthContext = React.createContext();
