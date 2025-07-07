@@ -1706,33 +1706,39 @@ const MedicalImageViewer = () => {
                 </div>
 
                 <div className="border border-gray-200 rounded-lg overflow-hidden relative">
-                  <canvas
-                    ref={canvasRef}
-                    width={800}
-                    height={600}
-                    className="absolute top-0 left-0 bg-black"
-                    style={{
-                      maxHeight: viewerState.isMaximized ? '80vh' : '600px'
-                    }}
-                  />
-                  <canvas
-                    ref={overlayCanvasRef}
-                    width={800}
-                    height={600}
-                    className="absolute top-0 left-0 cursor-crosshair"
-                    style={{
-                      maxHeight: viewerState.isMaximized ? '80vh' : '600px'
-                    }}
-                    onMouseDown={handleCanvasMouseDown}
-                    onMouseMove={handleCanvasMouseMove}
-                    onMouseUp={handleCanvasMouseUp}
-                    onClick={(e) => {
-                      if (annotationState.tool === 'text') {
-                        const rect = e.target.getBoundingClientRect();
-                        handleTextAnnotation(e.clientX - rect.left, e.clientY - rect.top);
-                      }
-                    }}
-                  />
+                  <div className="canvas-container relative inline-block">
+                    <canvas
+                      ref={canvasRef}
+                      width={800}
+                      height={600}
+                      className="main-canvas block bg-black"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: viewerState.isMaximized ? '80vh' : '600px'
+                      }}
+                    />
+                    <canvas
+                      ref={overlayCanvasRef}
+                      width={800}
+                      height={600}
+                      className="overlay-canvas absolute top-0 left-0 cursor-crosshair"
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: viewerState.isMaximized ? '80vh' : '600px'
+                      }}
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onClick={(e) => {
+                        if (annotationState.tool === 'text') {
+                          const rect = e.target.getBoundingClientRect();
+                          handleTextAnnotation(e.clientX - rect.left, e.clientY - rect.top);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Advanced Controls */}
