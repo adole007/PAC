@@ -1204,10 +1204,19 @@ const MedicalImageViewer = () => {
     overlayCanvas.height = 600;
     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     
+    // Apply the same transformations as the main canvas
+    ctx.save();
+    
+    // Apply transformations to match the image
+    ctx.translate(overlayCanvas.width / 2, overlayCanvas.height / 2);
+    ctx.scale(viewerState.zoom, viewerState.zoom);
+    ctx.rotate((viewerState.rotation * Math.PI) / 180);
+    ctx.translate(-overlayCanvas.width / 2, -overlayCanvas.height / 2);
+    
     // Draw annotations
     annotationState.annotations.forEach(annotation => {
       ctx.strokeStyle = annotation.color || '#ff0000';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / viewerState.zoom; // Adjust line width for zoom
       ctx.fillStyle = annotation.color || '#ff0000';
       
       switch (annotation.type) {
@@ -1238,13 +1247,15 @@ const MedicalImageViewer = () => {
           break;
           
         case 'text':
-          ctx.font = '16px Arial';
+          ctx.save();
+          ctx.font = `${16 / viewerState.zoom}px Arial`; // Adjust font size for zoom
           ctx.fillText(annotation.text, annotation.x, annotation.y);
+          ctx.restore();
           break;
           
         case 'roi':
           ctx.strokeStyle = '#00ff00';
-          ctx.setLineDash([5, 5]);
+          ctx.setLineDash([5 / viewerState.zoom, 5 / viewerState.zoom]); // Adjust dash for zoom
           ctx.strokeRect(annotation.x, annotation.y, annotation.width, annotation.height);
           ctx.setLineDash([]);
           break;
@@ -1254,8 +1265,8 @@ const MedicalImageViewer = () => {
     // Draw measurements
     annotationState.measurements.forEach(measurement => {
       ctx.strokeStyle = '#ffff00';
-      ctx.lineWidth = 2;
-      ctx.font = '14px Arial';
+      ctx.lineWidth = 2 / viewerState.zoom;
+      ctx.font = `${14 / viewerState.zoom}px Arial`;
       ctx.fillStyle = '#ffff00';
       
       if (measurement.type === 'distance') {
@@ -1268,7 +1279,14 @@ const MedicalImageViewer = () => {
         // Draw measurement text
         const midX = (measurement.startX + measurement.endX) / 2;
         const midY = (measurement.startY + measurement.endY) / 2;
-        ctx.fillText(`${measurement.value.toFixed(2)} px`, midX + 5, midY - 5);
+        
+        ctx.save();
+        // Rotate text to be readable regardless of image rotation
+        ctx.translate(midX, midY);
+        ctx.rotate(-viewerState.rotation * Math.PI / 180); // Counter-rotate text
+        ctx.fillText(`${measurement.value.toFixed(2)} px`, 5 / viewerState.zoom, -5 / viewerState.zoom);
+        ctx.restore();
+        
       } else if (measurement.type === 'angle') {
         // Draw angle lines
         ctx.beginPath();
@@ -1280,13 +1298,19 @@ const MedicalImageViewer = () => {
         
         // Draw angle arc
         ctx.beginPath();
-        ctx.arc(measurement.vertex.x, measurement.vertex.y, 30, measurement.startAngle, measurement.endAngle);
+        ctx.arc(measurement.vertex.x, measurement.vertex.y, 30 / viewerState.zoom, measurement.startAngle, measurement.endAngle);
         ctx.stroke();
         
         // Draw angle text
-        ctx.fillText(`${measurement.value.toFixed(1)}°`, measurement.vertex.x + 35, measurement.vertex.y);
+        ctx.save();
+        ctx.translate(measurement.vertex.x, measurement.vertex.y);
+        ctx.rotate(-viewerState.rotation * Math.PI / 180); // Counter-rotate text
+        ctx.fillText(`${measurement.value.toFixed(1)}°`, 35 / viewerState.zoom, 0);
+        ctx.restore();
       }
     });
+    
+    ctx.restore();
   };
 
   const drawArrow = (ctx, startX, startY, endX, endY) => {
