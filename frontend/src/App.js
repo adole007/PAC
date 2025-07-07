@@ -391,8 +391,8 @@ const PatientManagement = () => {
     }
   };
 
-  // Filter patients based on search term
-  const filteredPatients = patients.filter(patient => {
+  // Filter patients based on search term for Medical Image Viewer
+  const filteredPatientsForViewer = patients.filter(patient => {
     if (!patientSearchTerm) return true;
     
     const searchLower = patientSearchTerm.toLowerCase();
