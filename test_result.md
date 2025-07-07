@@ -116,6 +116,9 @@ backend:
       - working: true
         agent: "main"
         comment: "JWT-based authentication with clinician/admin roles implemented successfully"
+      - working: true
+        agent: "testing"
+        comment: "Authentication system tested successfully. User registration, login, and protected routes all working as expected. JWT token generation and validation working correctly."
   
   - task: "Patient Management CRUD"
     implemented: true
