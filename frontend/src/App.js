@@ -176,7 +176,7 @@ const Login = () => {
           </div>
           <h1 className={`text-3xl font-bold mb-2 ${
             isDarkMode ? 'text-slate-100' : 'text-gray-800'
-          }`}>PAC System</h1>
+          }`}>JAJUWA HEALTHCARE PAC System</h1>
           <p className={isDarkMode ? 'text-slate-400' : 'text-gray-600'}>
             Medical Image Management Platform
           </p>
