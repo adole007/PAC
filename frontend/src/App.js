@@ -1111,8 +1111,31 @@ const MedicalImageViewer = () => {
 
     const img = new Image();
     img.onload = () => {
+      // Set canvas size to match container
+      canvas.width = 800;
+      canvas.height = 600;
+      
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Calculate image dimensions to fit canvas while maintaining aspect ratio
+      const imgAspect = img.width / img.height;
+      const canvasAspect = canvas.width / canvas.height;
+      
+      let drawWidth, drawHeight, drawX, drawY;
+      
+      if (imgAspect > canvasAspect) {
+        // Image is wider than canvas
+        drawWidth = canvas.width * 0.8; // Leave some margin
+        drawHeight = drawWidth / imgAspect;
+      } else {
+        // Image is taller than canvas
+        drawHeight = canvas.height * 0.8; // Leave some margin
+        drawWidth = drawHeight * imgAspect;
+      }
+      
+      drawX = (canvas.width - drawWidth) / 2;
+      drawY = (canvas.height - drawHeight) / 2;
       
       // Save context state
       ctx.save();
@@ -1121,36 +1144,53 @@ const MedicalImageViewer = () => {
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(viewerState.zoom, viewerState.zoom);
       ctx.rotate((viewerState.rotation * Math.PI) / 180);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
       
       // Apply brightness and contrast
       ctx.filter = `brightness(${viewerState.brightness}) contrast(${viewerState.contrast})`;
       
       // Draw image
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
       
-      // Apply advanced image processing
+      // Apply advanced image processing if needed
       if (viewerState.noiseThreshold > 0 || viewerState.boneRemoval > 0 || viewerState.fleshRemoval > 0) {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        if (viewerState.noiseThreshold > 0) {
-          applyNoiseReduction(imageData, viewerState.noiseThreshold * 50);
+        try {
+          const imageData = ctx.getImageData(drawX, drawY, drawWidth, drawHeight);
+          
+          if (viewerState.noiseThreshold > 0) {
+            applyNoiseReduction(imageData, viewerState.noiseThreshold * 50);
+          }
+          
+          if (viewerState.boneRemoval > 0) {
+            applyBoneRemoval(imageData, viewerState.boneRemoval);
+          }
+          
+          if (viewerState.fleshRemoval > 0) {
+            applyFleshRemoval(imageData, viewerState.fleshRemoval);
+          }
+          
+          ctx.putImageData(imageData, drawX, drawY);
+        } catch (error) {
+          console.log('Advanced processing not applied due to canvas restrictions');
         }
-        
-        if (viewerState.boneRemoval > 0) {
-          applyBoneRemoval(imageData, viewerState.boneRemoval);
-        }
-        
-        if (viewerState.fleshRemoval > 0) {
-          applyFleshRemoval(imageData, viewerState.fleshRemoval);
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
       }
       
       // Restore context state
       ctx.restore();
     };
     
+    img.onerror = () => {
+      console.error('Failed to load image');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Failed to load image', canvas.width / 2, canvas.height / 2);
+    };
+    
+    // Set the image source
     img.src = `data:image/png;base64,${selectedImage.image_data}`;
   };
 
