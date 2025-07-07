@@ -126,11 +126,14 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Complete patient management with demographics, medical history, insurance info"
+      - working: true
+        agent: "testing"
+        comment: "Patient management CRUD operations tested successfully. Create, read, update, and delete operations all working correctly. Patient data including demographics, medical history, and insurance information is properly stored and retrieved."
   
   - task: "DICOM Image Processing"
     implemented: true
