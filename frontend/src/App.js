@@ -1009,6 +1009,12 @@ const MedicalImageViewer = () => {
     }
   }, [selectedImage, viewerState]);
 
+  useEffect(() => {
+    if (overlayCanvasRef.current) {
+      drawAnnotations();
+    }
+  }, [annotationState.annotations, annotationState.measurements]);
+
   const fetchPatients = async () => {
     try {
       const response = await axios.get(`${API}/patients`);
@@ -1025,6 +1031,76 @@ const MedicalImageViewer = () => {
     } catch (error) {
       toast.error('Failed to fetch patient images');
     }
+  };
+
+  // Advanced image processing functions
+  const applyNoiseReduction = (imageData, threshold) => {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    
+    // Apply median filter for noise reduction
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // Get surrounding pixels
+        const neighbors = [];
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nIdx = ((y + dy) * width + (x + dx)) * 4;
+            neighbors.push(data[nIdx]);
+          }
+        }
+        
+        // Apply threshold-based noise reduction
+        neighbors.sort((a, b) => a - b);
+        const median = neighbors[4];
+        const currentPixel = data[idx];
+        
+        if (Math.abs(currentPixel - median) > threshold) {
+          data[idx] = data[idx + 1] = data[idx + 2] = median;
+        }
+      }
+    }
+    
+    return imageData;
+  };
+
+  const applyBoneRemoval = (imageData, intensity) => {
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const grayscale = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      
+      // Remove high-density pixels (bones appear bright in X-rays)
+      if (grayscale > 200 - (intensity * 50)) {
+        const reduction = intensity * 0.8;
+        data[i] *= (1 - reduction);     // R
+        data[i + 1] *= (1 - reduction); // G
+        data[i + 2] *= (1 - reduction); // B
+      }
+    }
+    
+    return imageData;
+  };
+
+  const applyFleshRemoval = (imageData, intensity) => {
+    const data = imageData.data;
+    
+    for (let i = 0; i < data.length; i += 4) {
+      const grayscale = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      
+      // Remove low-density pixels (soft tissue appears darker)
+      if (grayscale < 150 + (intensity * 50)) {
+        const reduction = intensity * 0.7;
+        data[i] *= (1 - reduction);     // R
+        data[i + 1] *= (1 - reduction); // G
+        data[i + 2] *= (1 - reduction); // B
+      }
+    }
+    
+    return imageData;
   };
 
   const renderImage = () => {
@@ -1052,11 +1128,296 @@ const MedicalImageViewer = () => {
       // Draw image
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
       
+      // Apply advanced image processing
+      if (viewerState.noiseThreshold > 0 || viewerState.boneRemoval > 0 || viewerState.fleshRemoval > 0) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        if (viewerState.noiseThreshold > 0) {
+          applyNoiseReduction(imageData, viewerState.noiseThreshold * 50);
+        }
+        
+        if (viewerState.boneRemoval > 0) {
+          applyBoneRemoval(imageData, viewerState.boneRemoval);
+        }
+        
+        if (viewerState.fleshRemoval > 0) {
+          applyFleshRemoval(imageData, viewerState.fleshRemoval);
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+      }
+      
       // Restore context state
       ctx.restore();
     };
     
     img.src = `data:image/png;base64,${selectedImage.image_data}`;
+  };
+
+  const drawAnnotations = () => {
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!overlayCanvas) return;
+    
+    const ctx = overlayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    
+    // Draw annotations
+    annotationState.annotations.forEach(annotation => {
+      ctx.strokeStyle = annotation.color || '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = annotation.color || '#ff0000';
+      
+      switch (annotation.type) {
+        case 'line':
+          ctx.beginPath();
+          ctx.moveTo(annotation.startX, annotation.startY);
+          ctx.lineTo(annotation.endX, annotation.endY);
+          ctx.stroke();
+          break;
+          
+        case 'rectangle':
+          ctx.strokeRect(
+            annotation.x, 
+            annotation.y, 
+            annotation.width, 
+            annotation.height
+          );
+          break;
+          
+        case 'circle':
+          ctx.beginPath();
+          ctx.arc(annotation.x, annotation.y, annotation.radius, 0, 2 * Math.PI);
+          ctx.stroke();
+          break;
+          
+        case 'arrow':
+          drawArrow(ctx, annotation.startX, annotation.startY, annotation.endX, annotation.endY);
+          break;
+          
+        case 'text':
+          ctx.font = '16px Arial';
+          ctx.fillText(annotation.text, annotation.x, annotation.y);
+          break;
+          
+        case 'roi':
+          ctx.strokeStyle = '#00ff00';
+          ctx.setLineDash([5, 5]);
+          ctx.strokeRect(annotation.x, annotation.y, annotation.width, annotation.height);
+          ctx.setLineDash([]);
+          break;
+      }
+    });
+    
+    // Draw measurements
+    annotationState.measurements.forEach(measurement => {
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 2;
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#ffff00';
+      
+      if (measurement.type === 'distance') {
+        // Draw line
+        ctx.beginPath();
+        ctx.moveTo(measurement.startX, measurement.startY);
+        ctx.lineTo(measurement.endX, measurement.endY);
+        ctx.stroke();
+        
+        // Draw measurement text
+        const midX = (measurement.startX + measurement.endX) / 2;
+        const midY = (measurement.startY + measurement.endY) / 2;
+        ctx.fillText(`${measurement.value.toFixed(2)} px`, midX + 5, midY - 5);
+      } else if (measurement.type === 'angle') {
+        // Draw angle lines
+        ctx.beginPath();
+        ctx.moveTo(measurement.vertex.x, measurement.vertex.y);
+        ctx.lineTo(measurement.point1.x, measurement.point1.y);
+        ctx.moveTo(measurement.vertex.x, measurement.vertex.y);
+        ctx.lineTo(measurement.point2.x, measurement.point2.y);
+        ctx.stroke();
+        
+        // Draw angle arc
+        ctx.beginPath();
+        ctx.arc(measurement.vertex.x, measurement.vertex.y, 30, measurement.startAngle, measurement.endAngle);
+        ctx.stroke();
+        
+        // Draw angle text
+        ctx.fillText(`${measurement.value.toFixed(1)}°`, measurement.vertex.x + 35, measurement.vertex.y);
+      }
+    });
+  };
+
+  const drawArrow = (ctx, startX, startY, endX, endY) => {
+    const headLength = 20;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const angle = Math.atan2(dy, dx);
+    
+    // Draw line
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    
+    // Draw arrowhead
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(
+      endX - headLength * Math.cos(angle - Math.PI / 6),
+      endY - headLength * Math.sin(angle - Math.PI / 6)
+    );
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(
+      endX - headLength * Math.cos(angle + Math.PI / 6),
+      endY - headLength * Math.sin(angle + Math.PI / 6)
+    );
+    ctx.stroke();
+  };
+
+  const calculateDistance = (x1, y1, x2, y2) => {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+  };
+
+  const calculateAngle = (vertex, point1, point2) => {
+    const angle1 = Math.atan2(point1.y - vertex.y, point1.x - vertex.x);
+    const angle2 = Math.atan2(point2.y - vertex.y, point2.x - vertex.x);
+    let angle = Math.abs(angle1 - angle2) * (180 / Math.PI);
+    return angle > 180 ? 360 - angle : angle;
+  };
+
+  const handleCanvasMouseDown = (e) => {
+    if (annotationState.tool === 'none') return;
+    
+    const rect = overlayCanvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setAnnotationState(prev => ({
+      ...prev,
+      isDrawing: true,
+      startPoint: { x, y }
+    }));
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    const rect = overlayCanvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMousePos({ x, y });
+  };
+
+  const handleCanvasMouseUp = (e) => {
+    if (!annotationState.isDrawing || !annotationState.startPoint) return;
+    
+    const rect = overlayCanvasRef.current.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    const endY = e.clientY - rect.top;
+    const { x: startX, y: startY } = annotationState.startPoint;
+    
+    let newAnnotation = null;
+    let newMeasurement = null;
+    
+    switch (annotationState.tool) {
+      case 'line':
+        newAnnotation = {
+          type: 'line',
+          startX,
+          startY,
+          endX,
+          endY,
+          color: '#ff0000'
+        };
+        break;
+        
+      case 'rectangle':
+        newAnnotation = {
+          type: 'rectangle',
+          x: Math.min(startX, endX),
+          y: Math.min(startY, endY),
+          width: Math.abs(endX - startX),
+          height: Math.abs(endY - startY),
+          color: '#ff0000'
+        };
+        break;
+        
+      case 'circle':
+        const radius = calculateDistance(startX, startY, endX, endY);
+        newAnnotation = {
+          type: 'circle',
+          x: startX,
+          y: startY,
+          radius,
+          color: '#ff0000'
+        };
+        break;
+        
+      case 'arrow':
+        newAnnotation = {
+          type: 'arrow',
+          startX,
+          startY,
+          endX,
+          endY,
+          color: '#ff0000'
+        };
+        break;
+        
+      case 'roi':
+        newAnnotation = {
+          type: 'roi',
+          x: Math.min(startX, endX),
+          y: Math.min(startY, endY),
+          width: Math.abs(endX - startX),
+          height: Math.abs(endY - startY),
+          color: '#00ff00'
+        };
+        break;
+        
+      case 'ruler':
+        const distance = calculateDistance(startX, startY, endX, endY);
+        newMeasurement = {
+          type: 'distance',
+          startX,
+          startY,
+          endX,
+          endY,
+          value: distance
+        };
+        break;
+    }
+    
+    setAnnotationState(prev => ({
+      ...prev,
+      isDrawing: false,
+      startPoint: null,
+      annotations: newAnnotation ? [...prev.annotations, newAnnotation] : prev.annotations,
+      measurements: newMeasurement ? [...prev.measurements, newMeasurement] : prev.measurements
+    }));
+  };
+
+  const handleTextAnnotation = (x, y) => {
+    const text = prompt('Enter annotation text:');
+    if (text) {
+      const newAnnotation = {
+        type: 'text',
+        x,
+        y,
+        text,
+        color: '#ff0000'
+      };
+      
+      setAnnotationState(prev => ({
+        ...prev,
+        annotations: [...prev.annotations, newAnnotation]
+      }));
+    }
+  };
+
+  const clearAnnotations = () => {
+    setAnnotationState(prev => ({
+      ...prev,
+      annotations: [],
+      measurements: []
+    }));
   };
 
   const handleImageSelect = (image) => {
