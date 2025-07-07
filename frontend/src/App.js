@@ -275,7 +275,7 @@ const DashboardLayout = ({ children }) => {
                 </div>
                 <span className={`text-xl font-bold ${
                   isDarkMode ? 'text-slate-100' : 'text-gray-800'
-                }`}>PAC System</span>
+                }`}>JAJUWA HEALTHCARE PAC System</span>
               </div>
               
               <nav className="hidden md:flex space-x-1">
