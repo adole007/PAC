@@ -1076,6 +1076,8 @@ const MedicalImageViewer = () => {
   const [selectedPatient, setSelectedPatient] = useState('');
   const [patientImages, setPatientImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [patientSearchTerm, setPatientSearchTerm] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [viewerState, setViewerState] = useState({
     zoom: 1,
     rotation: 0,
@@ -1098,6 +1100,7 @@ const MedicalImageViewer = () => {
   const canvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const patientSearchRef = useRef(null);
 
   useEffect(() => {
     fetchPatients();
