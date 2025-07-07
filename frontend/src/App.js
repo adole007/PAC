@@ -1703,7 +1703,7 @@ const MedicalImageViewer = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">Medical Image Viewer</h1>
+        <h1 className="text-3xl font-bold text-gray-800">JAJUWA HEALTHCARE Medical Image Viewer</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
