@@ -2,6 +2,109 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+/* Dark theme for medical imaging */
+body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+.App {
+  background-color: #0f172a;
+  min-height: 100vh;
+}
+
+/* Dark theme overrides */
+.bg-white {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.bg-gray-50 {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.bg-gray-100 {
+  background-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+.bg-blue-50 {
+  background-color: #1e3a8a !important;
+  color: #dbeafe !important;
+}
+
+.bg-blue-100 {
+  background-color: #1d4ed8 !important;
+  color: #dbeafe !important;
+}
+
+.text-gray-800 {
+  color: #f1f5f9 !important;
+}
+
+.text-gray-700 {
+  color: #e2e8f0 !important;
+}
+
+.text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.text-gray-900 {
+  color: #f8fafc !important;
+}
+
+.border-gray-300 {
+  border-color: #475569 !important;
+}
+
+.border-gray-200 {
+  border-color: #334155 !important;
+}
+
+/* Form elements dark theme */
+input, select, textarea {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Button overrides */
+.hover\:bg-gray-100:hover {
+  background-color: #475569 !important;
+}
+
+.hover\:bg-gray-200:hover {
+  background-color: #64748b !important;
+}
+
+.hover\:bg-gray-50:hover {
+  background-color: #475569 !important;
+}
+
+/* Medical interface specific dark styling */
+.shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
