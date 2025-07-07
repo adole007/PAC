@@ -145,6 +145,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { isDarkMode } = useTheme();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -157,40 +158,66 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-slate-800 rounded-xl shadow-2xl p-8 w-full max-w-md border border-slate-700">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${
+      isDarkMode 
+        ? 'bg-slate-900' 
+        : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+    }`}>
+      <div className={`rounded-xl shadow-2xl p-8 w-full max-w-md ${
+        isDarkMode 
+          ? 'bg-slate-800 border border-slate-700' 
+          : 'bg-white'
+      }`}>
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-            <User className="w-8 h-8 text-white" />
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+            isDarkMode ? 'bg-blue-600' : 'bg-blue-100'
+          }`}>
+            <User className={`w-8 h-8 ${isDarkMode ? 'text-white' : 'text-blue-600'}`} />
           </div>
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">PAC System</h1>
-          <p className="text-slate-400">Medical Image Management Platform</p>
+          <h1 className={`text-3xl font-bold mb-2 ${
+            isDarkMode ? 'text-slate-100' : 'text-gray-800'
+          }`}>PAC System</h1>
+          <p className={isDarkMode ? 'text-slate-400' : 'text-gray-600'}>
+            Medical Image Management Platform
+          </p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? 'text-slate-300' : 'text-gray-700'
+            }`}>
               Username
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-100 placeholder-slate-400"
+              className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode 
+                  ? 'bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-400' 
+                  : 'bg-white border border-gray-300 text-gray-900 placeholder-gray-500'
+              }`}
               placeholder="Enter your username"
               required
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className={`block text-sm font-medium mb-2 ${
+              isDarkMode ? 'text-slate-300' : 'text-gray-700'
+            }`}>
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-100 placeholder-slate-400"
+              className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode 
+                  ? 'bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-400' 
+                  : 'bg-white border border-gray-300 text-gray-900 placeholder-gray-500'
+              }`}
               placeholder="Enter your password"
               required
             />
@@ -199,14 +226,18 @@ const Login = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${
+              isDarkMode 
+                ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-offset-slate-800' 
+                : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-offset-2'
+            }`}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         
         <div className="mt-6 text-center">
-          <p className="text-sm text-slate-400">
+          <p className={`text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-600'}`}>
             Demo Credentials: admin/password
           </p>
         </div>
