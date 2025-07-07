@@ -1779,8 +1779,8 @@ const MedicalImageViewer = () => {
               
               {showPatientDropdown && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredPatients.length > 0 ? (
-                    filteredPatients.map((patient) => (
+                  {filteredPatientsForViewer.length > 0 ? (
+                    filteredPatientsForViewer.map((patient) => (
                       <div
                         key={patient.id}
                         onClick={() => handlePatientSelect(patient)}
