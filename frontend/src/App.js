@@ -503,7 +503,7 @@ const PatientManagement = () => {
     });
   };
 
-  const filteredPatients = patients.filter(patient =>
+  const filteredPatientsForManagement = patients.filter(patient =>
     patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase())
