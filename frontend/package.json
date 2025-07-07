@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "pac-system-frontend",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -8,7 +8,17 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.5.1",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "cornerstone-core": "^2.6.1",
+    "cornerstone-math": "^0.1.10",
+    "cornerstone-tools": "^6.0.8",
+    "cornerstone-web-image-loader": "^2.1.1",
+    "cornerstone-wado-image-loader": "^4.6.0",
+    "dicom-parser": "^1.8.21",
+    "react-dropzone": "^14.2.3",
+    "react-modal": "^3.16.1",
+    "react-toastify": "^10.0.5",
+    "lucide-react": "^0.263.1"
   },
   "scripts": {
     "start": "craco start",
