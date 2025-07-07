@@ -380,16 +380,50 @@ const PatientManagement = () => {
     fetchPatients();
   }, []);
 
-  const fetchPatients = async () => {
-    try {
-      const response = await axios.get(`${API}/patients`);
-      setPatients(response.data);
-    } catch (error) {
-      toast.error('Failed to fetch patients');
-    } finally {
-      setLoading(false);
-    }
+  // Filter patients based on search term
+  const filteredPatients = patients.filter(patient => {
+    if (!patientSearchTerm) return true;
+    
+    const searchLower = patientSearchTerm.toLowerCase();
+    return (
+      patient.first_name.toLowerCase().includes(searchLower) ||
+      patient.last_name.toLowerCase().includes(searchLower) ||
+      `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchLower) ||
+      patient.patient_id.toLowerCase().includes(searchLower) ||
+      patient.medical_record_number.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Handle patient selection from dropdown
+  const handlePatientSelect = (patient) => {
+    setSelectedPatient(patient.id);
+    setPatientSearchTerm(`${patient.first_name} ${patient.last_name} (ID: ${patient.patient_id})`);
+    setShowPatientDropdown(false);
   };
+
+  // Handle search input focus
+  const handleSearchFocus = () => {
+    setShowPatientDropdown(true);
+    setPatientSearchTerm('');
+  };
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (patientSearchRef.current && !patientSearchRef.current.contains(event.target)) {
+        setShowPatientDropdown(false);
+        // If no patient selected, clear search
+        if (!selectedPatient) {
+          setPatientSearchTerm('');
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [selectedPatient]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
