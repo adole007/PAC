@@ -1541,7 +1541,7 @@ const MedicalImageViewer = () => {
           )}
         </div>
 
-        {/* Image Viewer */}
+        {/* Advanced Image Viewer */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm border">
             {selectedImage ? (
@@ -1555,114 +1555,290 @@ const MedicalImageViewer = () => {
                       Study: {selectedImage.study_date} {selectedImage.study_time}
                     </p>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleZoom(-0.1)}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleZoom(0.1)}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRotation(-90)}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Rotate Left"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Reset View"
-                    >
-                      <MousePointer className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleMaximize}
-                      className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      title="Maximize"
-                    >
-                      <Maximize className="w-4 h-4" />
-                    </button>
+                  
+                  {/* Annotation Tools */}
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex bg-gray-100 rounded-lg p-1">
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'none'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'none' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Select/Move"
+                      >
+                        <MousePointer className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'line'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'line' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Line"
+                      >
+                        <div className="w-4 h-4 border-b-2 border-current"></div>
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'rectangle'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'rectangle' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Rectangle"
+                      >
+                        <div className="w-4 h-4 border-2 border-current"></div>
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'circle'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'circle' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Circle"
+                      >
+                        <div className="w-4 h-4 border-2 border-current rounded-full"></div>
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'arrow'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'arrow' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Arrow"
+                      >
+                        ➤
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'text'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'text' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Text"
+                      >
+                        T
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'ruler'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'ruler' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="Ruler"
+                      >
+                        <Ruler className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setAnnotationState(prev => ({...prev, tool: 'roi'}))}
+                        className={`p-2 rounded ${annotationState.tool === 'roi' ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                        title="ROI"
+                      >
+                        ROI
+                      </button>
+                      <button
+                        onClick={clearAnnotations}
+                        className="p-2 rounded hover:bg-red-200 text-red-600"
+                        title="Clear All"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    
+                    {/* Basic Controls */}
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleZoom(-0.1)}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleZoom(0.1)}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Zoom In"
+                      >
+                        <ZoomIn className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRotation(-90)}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Rotate Left"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleReset}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Reset View"
+                      >
+                        <MousePointer className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleMaximize}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Maximize"
+                      >
+                        <Maximize className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-gray-200 rounded-lg overflow-hidden relative">
                   <canvas
                     ref={canvasRef}
                     width={800}
                     height={600}
-                    className="w-full h-auto bg-black"
+                    className="absolute top-0 left-0 bg-black"
                     style={{
                       maxHeight: viewerState.isMaximized ? '80vh' : '600px'
                     }}
                   />
+                  <canvas
+                    ref={overlayCanvasRef}
+                    width={800}
+                    height={600}
+                    className="absolute top-0 left-0 cursor-crosshair"
+                    style={{
+                      maxHeight: viewerState.isMaximized ? '80vh' : '600px'
+                    }}
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    onClick={(e) => {
+                      if (annotationState.tool === 'text') {
+                        const rect = e.target.getBoundingClientRect();
+                        handleTextAnnotation(e.clientX - rect.left, e.clientY - rect.top);
+                      }
+                    }}
+                  />
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Zoom: {(viewerState.zoom * 100).toFixed(0)}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="5"
-                      step="0.1"
-                      value={viewerState.zoom}
-                      onChange={(e) => setViewerState(prev => ({...prev, zoom: parseFloat(e.target.value)}))}
-                      className="w-full"
-                    />
+                {/* Advanced Controls */}
+                <div className="mt-4 space-y-4">
+                  {/* Basic Image Controls */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Zoom: {(viewerState.zoom * 100).toFixed(0)}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="5"
+                        step="0.1"
+                        value={viewerState.zoom}
+                        onChange={(e) => setViewerState(prev => ({...prev, zoom: parseFloat(e.target.value)}))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Brightness: {(viewerState.brightness * 100).toFixed(0)}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="3"
+                        step="0.1"
+                        value={viewerState.brightness}
+                        onChange={(e) => setViewerState(prev => ({...prev, brightness: parseFloat(e.target.value)}))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Contrast: {(viewerState.contrast * 100).toFixed(0)}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="3"
+                        step="0.1"
+                        value={viewerState.contrast}
+                        onChange={(e) => setViewerState(prev => ({...prev, contrast: parseFloat(e.target.value)}))}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Rotation: {viewerState.rotation}°
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        step="1"
+                        value={viewerState.rotation}
+                        onChange={(e) => setViewerState(prev => ({...prev, rotation: parseInt(e.target.value)}))}
+                        className="w-full"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Brightness: {(viewerState.brightness * 100).toFixed(0)}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3"
-                      step="0.1"
-                      value={viewerState.brightness}
-                      onChange={(e) => setViewerState(prev => ({...prev, brightness: parseFloat(e.target.value)}))}
-                      className="w-full"
-                    />
+
+                  {/* Advanced Image Processing Controls */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Advanced Image Processing</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Noise Removal: {(viewerState.noiseThreshold * 100).toFixed(0)}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={viewerState.noiseThreshold}
+                          onChange={(e) => setViewerState(prev => ({...prev, noiseThreshold: parseFloat(e.target.value)}))}
+                          className="w-full"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Removes image noise using median filtering</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Bone Removal: {(viewerState.boneRemoval * 100).toFixed(0)}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={viewerState.boneRemoval}
+                          onChange={(e) => setViewerState(prev => ({...prev, boneRemoval: parseFloat(e.target.value)}))}
+                          className="w-full"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Reduces high-density structures (bones)</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Flesh Removal: {(viewerState.fleshRemoval * 100).toFixed(0)}%
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={viewerState.fleshRemoval}
+                          onChange={(e) => setViewerState(prev => ({...prev, fleshRemoval: parseFloat(e.target.value)}))}
+                          className="w-full"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Reduces low-density structures (soft tissue)</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Contrast: {(viewerState.contrast * 100).toFixed(0)}%
-                    </label>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3"
-                      step="0.1"
-                      value={viewerState.contrast}
-                      onChange={(e) => setViewerState(prev => ({...prev, contrast: parseFloat(e.target.value)}))}
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Rotation: {viewerState.rotation}°
-                    </label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="360"
-                      step="1"
-                      value={viewerState.rotation}
-                      onChange={(e) => setViewerState(prev => ({...prev, rotation: parseInt(e.target.value)}))}
-                      className="w-full"
-                    />
-                  </div>
+
+                  {/* Measurements Display */}
+                  {(annotationState.measurements.length > 0 || annotationState.annotations.length > 0) && (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Measurements & Annotations</h4>
+                      <div className="space-y-2">
+                        {annotationState.measurements.map((measurement, index) => (
+                          <div key={index} className="text-sm text-gray-600">
+                            {measurement.type === 'distance' && (
+                              <span>Distance {index + 1}: {measurement.value.toFixed(2)} pixels</span>
+                            )}
+                            {measurement.type === 'angle' && (
+                              <span>Angle {index + 1}: {measurement.value.toFixed(1)}°</span>
+                            )}
+                          </div>
+                        ))}
+                        {annotationState.annotations.length > 0 && (
+                          <div className="text-sm text-gray-600">
+                            Annotations: {annotationState.annotations.length} items
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mouse Position Display */}
+                <div className="mt-2 text-xs text-gray-500">
+                  Mouse Position: X: {mousePos.x}, Y: {mousePos.y}
                 </div>
 
                 {selectedImage.dicom_metadata && Object.keys(selectedImage.dicom_metadata).length > 0 && (
@@ -1680,6 +1856,7 @@ const MedicalImageViewer = () => {
               <div className="p-12 text-center text-gray-500">
                 <ImageIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <p>Select a patient and image to view</p>
+                <p className="text-sm mt-2">Use annotation tools to mark areas of interest</p>
               </div>
             )}
           </div>
