@@ -249,3 +249,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Implemented comprehensive PAC system with DICOM support, authentication, patient management, and medical image viewer. Ready for backend testing."
+  - agent: "testing"
+    message: "Completed comprehensive backend testing. All backend components are working correctly. Fixed an issue with DICOM file processing by adding force=True parameter to handle files without proper headers. All tests are now passing."
