@@ -391,19 +391,12 @@ const PatientManagement = () => {
     }
   };
 
-  // Filter patients based on search term for Medical Image Viewer
-  const filteredPatientsForViewer = patients.filter(patient => {
-    if (!patientSearchTerm) return true;
-    
-    const searchLower = patientSearchTerm.toLowerCase();
-    return (
-      patient.first_name.toLowerCase().includes(searchLower) ||
-      patient.last_name.toLowerCase().includes(searchLower) ||
-      `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchLower) ||
-      patient.patient_id.toLowerCase().includes(searchLower) ||
-      patient.medical_record_number.toLowerCase().includes(searchLower)
-    );
-  });
+  // Filter patients based on search term for Patient Management
+  const filteredPatientsForManagement = patients.filter(patient =>
+    patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Handle patient selection from dropdown
   const handlePatientSelect = (patient) => {
