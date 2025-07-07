@@ -1146,17 +1146,6 @@ const MedicalImageViewer = () => {
     }
   }, [selectedPatient]);
 
-  const fetchPatients = async () => {
-    try {
-      const response = await axios.get(`${API}/patients`);
-      setPatients(response.data);
-    } catch (error) {
-      toast.error('Failed to fetch patients');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (selectedImage && canvasRef.current) {
       renderImage();
