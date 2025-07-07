@@ -2168,11 +2168,13 @@ const App = () => {
   );
 };
 
-// Export with AuthProvider wrapper
-export default function AppWithAuth() {
+// Export with AuthProvider and ThemeProvider wrapper
+export default function AppWithProviders() {
   return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
