@@ -1199,6 +1199,9 @@ const MedicalImageViewer = () => {
     if (!overlayCanvas) return;
     
     const ctx = overlayCanvas.getContext('2d');
+    // Set overlay canvas size to match main canvas
+    overlayCanvas.width = 800;
+    overlayCanvas.height = 600;
     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     
     // Draw annotations
