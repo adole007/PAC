@@ -1759,20 +1759,72 @@ const MedicalImageViewer = () => {
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-white rounded-lg shadow-sm border p-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Patient
+              Search & Select Patient
             </label>
-            <select
-              value={selectedPatient}
-              onChange={(e) => setSelectedPatient(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select a patient</option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.first_name} {patient.last_name} (ID: {patient.patient_id})
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={patientSearchRef}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={patientSearchTerm}
+                  onChange={(e) => {
+                    setPatientSearchTerm(e.target.value);
+                    setShowPatientDropdown(true);
+                  }}
+                  onFocus={handleSearchFocus}
+                  placeholder="Search by name, Patient ID, or Medical Record Number..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              {showPatientDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredPatients.length > 0 ? (
+                    filteredPatients.map((patient) => (
+                      <div
+                        key={patient.id}
+                        onClick={() => handlePatientSelect(patient)}
+                        className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {patient.first_name} {patient.last_name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Patient ID: {patient.patient_id}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              MRN: {patient.medical_record_number}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">
+                              {patient.gender}, DOB: {patient.date_of_birth}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Dr. {patient.primary_physician}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 text-center text-gray-500">
+                      {patientSearchTerm ? 'No patients found matching your search' : 'Start typing to search patients...'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            {selectedPatient && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  ✓ Patient selected: {patients.find(p => p.id === selectedPatient)?.first_name} {patients.find(p => p.id === selectedPatient)?.last_name}
+                </p>
+              </div>
+            )}
           </div>
 
           {selectedPatient && (
