@@ -265,6 +265,321 @@
   pointer-events: none;
 }
 
+/* Advanced annotation tools styles */
+.annotation-toolbar {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.annotation-tool {
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.annotation-tool:hover {
+  background: rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+.annotation-tool.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.annotation-tool.active:hover {
+  background: #2563eb;
+}
+
+/* Canvas cursor styles for different tools */
+.canvas-crosshair {
+  cursor: crosshair;
+}
+
+.canvas-move {
+  cursor: move;
+}
+
+.canvas-text {
+  cursor: text;
+}
+
+.canvas-grab {
+  cursor: grab;
+}
+
+.canvas-grabbing {
+  cursor: grabbing;
+}
+
+/* Measurement display styles */
+.measurement-display {
+  background: rgba(255, 255, 0, 0.9);
+  color: #000;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  position: absolute;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Advanced processing controls */
+.processing-controls {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.processing-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.processing-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.processing-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Annotation overlay styles */
+.annotation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.annotation-line {
+  stroke: #ff0000;
+  stroke-width: 2;
+  fill: none;
+}
+
+.annotation-rectangle {
+  stroke: #ff0000;
+  stroke-width: 2;
+  fill: none;
+}
+
+.annotation-circle {
+  stroke: #ff0000;
+  stroke-width: 2;
+  fill: none;
+}
+
+.annotation-text {
+  fill: #ff0000;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.annotation-arrow {
+  stroke: #ff0000;
+  stroke-width: 2;
+  fill: #ff0000;
+  marker-end: url(#arrowhead);
+}
+
+.annotation-roi {
+  stroke: #00ff00;
+  stroke-width: 2;
+  stroke-dasharray: 5,5;
+  fill: rgba(0, 255, 0, 0.1);
+}
+
+.measurement-line {
+  stroke: #ffff00;
+  stroke-width: 2;
+  fill: none;
+}
+
+.measurement-text {
+  fill: #ffff00;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* Noise removal visualization */
+.noise-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* Bone/flesh removal indicators */
+.processing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.processing-indicator.bone-removal {
+  border-left: 3px solid #fbbf24;
+}
+
+.processing-indicator.flesh-removal {
+  border-left: 3px solid #f87171;
+}
+
+.processing-indicator.noise-removal {
+  border-left: 3px solid #60a5fa;
+}
+
+/* Tool tips for advanced features */
+.tooltip {
+  position: relative;
+}
+
+.tooltip:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+/* Interactive canvas styles */
+.interactive-canvas {
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.canvas-container {
+  position: relative;
+  display: inline-block;
+}
+
+.main-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+/* Advanced measurement display */
+.measurement-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.measurement-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.measurement-item:last-child {
+  border-bottom: none;
+}
+
+.measurement-label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.measurement-value {
+  font-family: monospace;
+  color: #059669;
+  font-weight: bold;
+}
+
+/* Status indicators */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.coordinate-display {
+  font-family: monospace;
+}
+
+.tool-status {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* Animation for tool transitions */
+@keyframes toolSwitch {
+  0% { opacity: 0.7; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.annotation-tool.switching {
+  animation: toolSwitch 0.2s ease-out;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .viewer-controls {
