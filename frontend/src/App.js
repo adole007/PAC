@@ -1809,8 +1809,7 @@ const MedicalImageViewer = () => {
                       onMouseUp={handleCanvasMouseUp}
                       onClick={(e) => {
                         if (annotationState.tool === 'text') {
-                          const rect = e.target.getBoundingClientRect();
-                          handleTextAnnotation(e.clientX - rect.left, e.clientY - rect.top);
+                          handleTextAnnotation(e.clientX, e.clientY);
                         }
                       }}
                     />
