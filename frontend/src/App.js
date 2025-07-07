@@ -977,9 +977,21 @@ const MedicalImageViewer = () => {
     contrast: 1,
     windowCenter: 0,
     windowWidth: 0,
-    isMaximized: false
+    isMaximized: false,
+    noiseThreshold: 0,
+    boneRemoval: 0,
+    fleshRemoval: 0
+  });
+  const [annotationState, setAnnotationState] = useState({
+    tool: 'none', // 'line', 'rectangle', 'arrow', 'circle', 'text', 'ruler', 'angle', 'roi'
+    isDrawing: false,
+    startPoint: null,
+    annotations: [],
+    measurements: []
   });
   const canvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     fetchPatients();
