@@ -13,96 +13,151 @@ body {
   min-height: 100vh;
 }
 
-/* Dark theme overrides */
-.bg-white {
-  background-color: #1e293b !important;
+/* Dark theme enhancements */
+.bg-gradient-to-br {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+}
+
+/* Medical interface cards */
+.medical-card {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+/* Advanced processing controls dark theme */
+.processing-controls {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+  border: 1px solid #475569 !important;
   color: #e2e8f0 !important;
 }
 
-.bg-gray-50 {
+/* Form inputs dark theme enhancements */
+input::placeholder, 
+textarea::placeholder, 
+select option {
+  color: #94a3b8 !important;
+}
+
+/* Table styling for dark theme */
+.table-dark th {
   background-color: #334155 !important;
+  color: #f1f5f9 !important;
+  border-bottom: 1px solid #475569 !important;
+}
+
+.table-dark td {
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid #475569 !important;
+}
+
+.table-dark tr:hover {
+  background-color: #334155 !important;
+}
+
+/* Modal overlay dark theme */
+.modal-overlay {
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Measurement panel dark theme */
+.measurement-panel {
+  background: rgba(30, 41, 59, 0.95) !important;
+  border: 1px solid #475569 !important;
   color: #e2e8f0 !important;
 }
 
-.bg-gray-100 {
-  background-color: #475569 !important;
+.measurement-item {
+  border-bottom: 1px solid #334155 !important;
+}
+
+.measurement-label {
+  color: #cbd5e1 !important;
+}
+
+.measurement-value {
+  color: #34d399 !important;
+}
+
+/* Status bar dark theme */
+.status-bar {
+  background: #1e293b !important;
+  border-top: 1px solid #334155 !important;
+  color: #94a3b8 !important;
+}
+
+/* Canvas info overlays */
+.viewer-info,
+.viewer-measurements {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border: 1px solid #374151;
+}
+
+/* Annotation toolbar dark theme */
+.annotation-toolbar {
+  background: rgba(30, 41, 59, 0.95) !important;
+  border: 1px solid #475569;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Processing indicators dark theme */
+.processing-indicator {
+  background: rgba(0, 0, 0, 0.9) !important;
   color: #e2e8f0 !important;
+}
+
+/* Slider styling for dark theme */
+.processing-slider {
+  background: #475569 !important;
+}
+
+.processing-slider::-webkit-slider-thumb {
+  background: #3b82f6 !important;
+  border: 2px solid #1e293b !important;
+}
+
+.processing-slider::-moz-range-thumb {
+  background: #3b82f6 !important;
+  border: 2px solid #1e293b !important;
+}
+
+/* Tooltip dark theme */
+.tooltip:hover::after {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: #e2e8f0 !important;
+}
+
+/* Professional medical dark theme adjustments */
+.bg-gray-50 {
+  background-color: #1e293b !important;
 }
 
 .bg-blue-50 {
   background-color: #1e3a8a !important;
-  color: #dbeafe !important;
 }
 
-.bg-blue-100 {
-  background-color: #1d4ed8 !important;
-  color: #dbeafe !important;
-}
-
-.text-gray-800 {
-  color: #f1f5f9 !important;
-}
-
-.text-gray-700 {
-  color: #e2e8f0 !important;
-}
-
-.text-gray-600 {
-  color: #cbd5e1 !important;
-}
-
-.text-gray-500 {
-  color: #94a3b8 !important;
-}
-
-.text-gray-900 {
-  color: #f8fafc !important;
-}
-
-.border-gray-300 {
-  border-color: #475569 !important;
-}
-
-.border-gray-200 {
-  border-color: #334155 !important;
-}
-
-/* Form elements dark theme */
-input, select, textarea {
-  background-color: #334155 !important;
-  border-color: #475569 !important;
-  color: #e2e8f0 !important;
-}
-
-input:focus, select:focus, textarea:focus {
-  border-color: #3b82f6 !important;
+/* Focus states for dark theme */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
 }
 
-/* Button overrides */
-.hover\:bg-gray-100:hover {
-  background-color: #475569 !important;
+/* Scrollbar dark theme */
+::-webkit-scrollbar-track {
+  background: #334155 !important;
 }
 
-.hover\:bg-gray-200:hover {
-  background-color: #64748b !important;
+::-webkit-scrollbar-thumb {
+  background: #64748b !important;
 }
 
-.hover\:bg-gray-50:hover {
-  background-color: #475569 !important;
-}
-
-/* Medical interface specific dark styling */
-.shadow-sm {
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
-}
-
-.shadow-xl {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
-}
-
-.shadow-2xl {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
 }
 
 /* Custom scrollbar */
