@@ -18,13 +18,8 @@ logger = logging.getLogger(__name__)
 
 # Get backend URL from frontend .env file
 def get_backend_url():
-    env_path = Path('/app/frontend/.env')
-    if env_path.exists():
-        with open(env_path, 'r') as f:
-            for line in f:
-                if line.startswith('REACT_APP_BACKEND_URL='):
-                    return line.strip().split('=')[1].strip('"\'') + '/api'
-    return None
+    # Use local URL for testing
+    return "http://localhost:8001/api"
 
 BACKEND_URL = get_backend_url()
 if not BACKEND_URL:
