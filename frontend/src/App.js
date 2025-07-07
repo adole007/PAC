@@ -1314,7 +1314,7 @@ const MedicalImageViewer = () => {
   };
 
   const drawArrow = (ctx, startX, startY, endX, endY) => {
-    const headLength = 20;
+    const headLength = 20 / viewerState.zoom; // Adjust arrow head size for zoom
     const dx = endX - startX;
     const dy = endY - startY;
     const angle = Math.atan2(dy, dx);
