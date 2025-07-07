@@ -1013,7 +1013,7 @@ const MedicalImageViewer = () => {
     if (overlayCanvasRef.current) {
       drawAnnotations();
     }
-  }, [annotationState.annotations, annotationState.measurements]);
+  }, [annotationState.annotations, annotationState.measurements, viewerState.zoom, viewerState.rotation]);
 
   const fetchPatients = async () => {
     try {
