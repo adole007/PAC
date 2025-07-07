@@ -1489,13 +1489,15 @@ const MedicalImageViewer = () => {
     }));
   };
 
-  const handleTextAnnotation = (x, y) => {
+  const handleTextAnnotation = (clientX, clientY) => {
     const text = prompt('Enter annotation text:');
     if (text) {
+      const transformed = transformMouseCoordinates(clientX, clientY);
+      
       const newAnnotation = {
         type: 'text',
-        x,
-        y,
+        x: transformed.x,
+        y: transformed.y,
         text,
         color: '#ff0000'
       };
