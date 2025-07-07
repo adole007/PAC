@@ -289,9 +289,12 @@ class PACSystemTest(unittest.TestCase):
             file_meta.MediaStorageSOPClassUID = '1.2.840.10008.5.1.4.1.1.2'  # CT Image Storage
             file_meta.MediaStorageSOPInstanceUID = '1.2.3'
             file_meta.TransferSyntaxUID = '1.2.840.10008.1.2.1'  # Explicit VR Little Endian
+            file_meta.ImplementationClassUID = '1.2.3.4'
             
             ds = Dataset()
             ds.file_meta = file_meta
+            ds.is_little_endian = True
+            ds.is_implicit_VR = False
             ds.PatientName = "Test^Patient"
             ds.PatientID = "TEST12345"
             ds.Modality = "CT"
