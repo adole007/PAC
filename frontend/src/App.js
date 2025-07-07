@@ -2114,6 +2114,7 @@ const Dashboard = ({ activeTab }) => {
 // Main App Component
 const App = () => {
   const { user, loading } = useAuth();
+  const { isDarkMode } = useTheme();
 
   if (loading) {
     return (
