@@ -391,13 +391,6 @@ const PatientManagement = () => {
     }
   };
 
-  // Filter patients based on search term for Patient Management
-  const filteredPatientsForManagement = patients.filter(patient =>
-    patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   // Handle patient selection from dropdown
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient.id);
