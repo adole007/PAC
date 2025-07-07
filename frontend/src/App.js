@@ -1472,8 +1472,27 @@ const MedicalImageViewer = () => {
       contrast: 1,
       windowCenter: image.window_center || 0,
       windowWidth: image.window_width || 0,
-      isMaximized: false
+      isMaximized: false,
+      noiseThreshold: 0,
+      boneRemoval: 0,
+      fleshRemoval: 0
     });
+    
+    // Clear annotations when switching images
+    setAnnotationState(prev => ({
+      ...prev,
+      annotations: [],
+      measurements: []
+    }));
+    
+    // Ensure overlay canvas is properly set up
+    setTimeout(() => {
+      if (overlayCanvasRef.current) {
+        const overlayCanvas = overlayCanvasRef.current;
+        overlayCanvas.width = 800;
+        overlayCanvas.height = 600;
+      }
+    }, 100);
   };
 
   const handleZoom = (delta) => {
