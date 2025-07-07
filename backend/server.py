@@ -245,8 +245,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 def process_dicom_file(file_content: bytes):
     """Process DICOM file and extract metadata and image data"""
     try:
-        # Read DICOM file
-        ds = pydicom.dcmread(io.BytesIO(file_content))
+        # Read DICOM file with force=True to handle files without proper headers
+        ds = pydicom.dcmread(io.BytesIO(file_content), force=True)
         
         # Extract metadata
         metadata = {}
