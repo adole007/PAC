@@ -1351,17 +1351,46 @@ const MedicalImageViewer = () => {
     return angle > 180 ? 360 - angle : angle;
   };
 
+  // Helper function to transform mouse coordinates to image space
+  const transformMouseCoordinates = (clientX, clientY) => {
+    const rect = overlayCanvasRef.current.getBoundingClientRect();
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+    
+    // Convert from canvas coordinates to image coordinates accounting for transformations
+    const centerX = overlayCanvasRef.current.width / 2;
+    const centerY = overlayCanvasRef.current.height / 2;
+    
+    // Reverse the transformations applied to the canvas
+    // 1. Translate to origin
+    let x = canvasX - centerX;
+    let y = canvasY - centerY;
+    
+    // 2. Reverse zoom
+    x = x / viewerState.zoom;
+    y = y / viewerState.zoom;
+    
+    // 3. Reverse rotation
+    const rotationRad = -viewerState.rotation * Math.PI / 180;
+    const rotatedX = x * Math.cos(rotationRad) - y * Math.sin(rotationRad);
+    const rotatedY = x * Math.sin(rotationRad) + y * Math.cos(rotationRad);
+    
+    // 4. Translate back
+    return {
+      x: rotatedX + centerX,
+      y: rotatedY + centerY
+    };
+  };
+
   const handleCanvasMouseDown = (e) => {
     if (annotationState.tool === 'none') return;
     
-    const rect = overlayCanvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const transformed = transformMouseCoordinates(e.clientX, e.clientY);
     
     setAnnotationState(prev => ({
       ...prev,
       isDrawing: true,
-      startPoint: { x, y }
+      startPoint: transformed
     }));
   };
 
@@ -1375,10 +1404,9 @@ const MedicalImageViewer = () => {
   const handleCanvasMouseUp = (e) => {
     if (!annotationState.isDrawing || !annotationState.startPoint) return;
     
-    const rect = overlayCanvasRef.current.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
+    const transformed = transformMouseCoordinates(e.clientX, e.clientY);
     const { x: startX, y: startY } = annotationState.startPoint;
+    const { x: endX, y: endY } = transformed;
     
     let newAnnotation = null;
     let newMeasurement = null;
