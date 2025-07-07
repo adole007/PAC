@@ -249,6 +249,7 @@ const Login = () => {
 // Dashboard Layout
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('patients');
 
   const navigation = [
@@ -259,8 +260,12 @@ const DashboardLayout = ({ children }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="bg-slate-800 shadow-sm border-b border-slate-700">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
+      <div className={`shadow-sm border-b ${
+        isDarkMode 
+          ? 'bg-slate-800 border-slate-700' 
+          : 'bg-white border-gray-200'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
@@ -268,7 +273,9 @@ const DashboardLayout = ({ children }) => {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <User className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xl font-bold text-slate-100">PAC System</span>
+                <span className={`text-xl font-bold ${
+                  isDarkMode ? 'text-slate-100' : 'text-gray-800'
+                }`}>PAC System</span>
               </div>
               
               <nav className="hidden md:flex space-x-1">
@@ -279,7 +286,9 @@ const DashboardLayout = ({ children }) => {
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
                       activeTab === item.id
                         ? 'bg-blue-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                        : isDarkMode
+                          ? 'text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+                          : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
@@ -290,13 +299,40 @@ const DashboardLayout = ({ children }) => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-slate-300">
-                <span className="font-medium text-slate-100">{user?.full_name}</span>
-                <span className="text-slate-400 ml-2">({user?.role})</span>
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors ${
+                  isDarkMode
+                    ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                }`}
+                title={`Switch to ${isDarkMode ? 'light' : 'dark'} theme`}
+              >
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+              
+              <div className={`text-sm ${
+                isDarkMode ? 'text-slate-300' : 'text-gray-600'
+              }`}>
+                <span className={`font-medium ${
+                  isDarkMode ? 'text-slate-100' : 'text-gray-900'
+                }`}>{user?.full_name}</span>
+                <span className={isDarkMode ? 'text-slate-400' : 'text-gray-400'}>
+                  {' '}({user?.role})
+                </span>
               </div>
               <button
                 onClick={logout}
-                className="flex items-center space-x-1 text-slate-400 hover:text-red-400 transition-colors"
+                className={`flex items-center space-x-1 transition-colors ${
+                  isDarkMode
+                    ? 'text-slate-400 hover:text-red-400'
+                    : 'text-gray-600 hover:text-red-600'
+                }`}
               >
                 <LogOut className="w-4 h-4" />
                 <span>Logout</span>
