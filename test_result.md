@@ -141,11 +141,14 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "DICOM processing with pydicom, metadata extraction, windowing support"
+      - working: true
+        agent: "testing"
+        comment: "DICOM image processing tested successfully. The system correctly processes image files and extracts metadata. Added force=True parameter to handle DICOM files without proper headers."
   
   - task: "Medical Image Upload API"
     implemented: true
