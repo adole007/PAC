@@ -391,37 +391,6 @@ const PatientManagement = () => {
     }
   };
 
-  // Handle patient selection from dropdown
-  const handlePatientSelect = (patient) => {
-    setSelectedPatient(patient.id);
-    setPatientSearchTerm(`${patient.first_name} ${patient.last_name} (ID: ${patient.patient_id})`);
-    setShowPatientDropdown(false);
-  };
-
-  // Handle search input focus
-  const handleSearchFocus = () => {
-    setShowPatientDropdown(true);
-    setPatientSearchTerm('');
-  };
-
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (patientSearchRef.current && !patientSearchRef.current.contains(event.target)) {
-        setShowPatientDropdown(false);
-        // If no patient selected, clear search
-        if (!selectedPatient) {
-          setPatientSearchTerm('');
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [selectedPatient]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
