@@ -380,6 +380,17 @@ const PatientManagement = () => {
     fetchPatients();
   }, []);
 
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      toast.error('Failed to fetch patients');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter patients based on search term
   const filteredPatients = patients.filter(patient => {
     if (!patientSearchTerm) return true;
