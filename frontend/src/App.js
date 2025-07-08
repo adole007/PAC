@@ -1654,15 +1654,15 @@ const MedicalImageViewer = () => {
           const imageData = ctx.getImageData(drawX, drawY, drawWidth, drawHeight);
           
           if (viewerState.noiseThreshold > 0) {
-            applyNoiseReduction(imageData, viewerState.noiseThreshold * 50);
+            applyNoiseReduction(imageData, viewerState.noiseThreshold);
           }
           
           if (viewerState.boneRemoval > 0) {
-            applyBoneRemoval(imageData, viewerState.boneRemoval);
+            applyAdvancedBoneRemoval(imageData, viewerState.boneRemoval);
           }
           
           if (viewerState.fleshRemoval > 0) {
-            applyFleshRemoval(imageData, viewerState.fleshRemoval);
+            applyAdvancedFleshRemoval(imageData, viewerState.fleshRemoval);
           }
           
           ctx.putImageData(imageData, drawX, drawY);
