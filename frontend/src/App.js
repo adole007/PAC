@@ -835,14 +835,24 @@ const ImageUpload = () => {
     }
 
     // Validate required fields
-    if (!uploadData.study_id || !uploadData.series_id || !uploadData.modality || 
-        !uploadData.body_part || !uploadData.study_date || !uploadData.study_time || 
-        !uploadData.institution_name || !uploadData.referring_physician) {
-      toast.error('Please fill in all required fields');
+    const missingFields = [];
+    if (!uploadData.study_id) missingFields.push('Study ID');
+    if (!uploadData.series_id) missingFields.push('Series ID');
+    if (!uploadData.modality) missingFields.push('Modality');
+    if (!uploadData.body_part) missingFields.push('Body Part');
+    if (!uploadData.study_date) missingFields.push('Study Date');
+    if (!uploadData.study_time) missingFields.push('Study Time');
+    if (!uploadData.institution_name) missingFields.push('Institution Name');
+    if (!uploadData.referring_physician) missingFields.push('Referring Physician');
+    
+    if (missingFields.length > 0) {
+      toast.error(`Please fill in these required fields: ${missingFields.join(', ')}`);
       return;
     }
 
     setUploading(true);
+    let successCount = 0;
+    let failureCount = 0;
     
     for (const file of selectedFiles) {
       try {
@@ -857,37 +867,68 @@ const ImageUpload = () => {
         formData.append('institution_name', uploadData.institution_name);
         formData.append('referring_physician', uploadData.referring_physician);
 
-        console.log('Uploading to patient:', selectedPatient);
+        console.log('Uploading file:', file.name);
+        console.log('To patient ID:', selectedPatient);
         console.log('Upload data:', uploadData);
         
-        await axios.post(`${API}/patients/${selectedPatient}/images`, formData, {
+        const response = await axios.post(`${API}/patients/${selectedPatient}/images`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
         
+        console.log('Upload response:', response.data);
         toast.success(`${file.name} uploaded successfully`);
+        successCount++;
       } catch (error) {
         console.error('Upload error:', error);
-        const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+        console.error('Error response:', error.response?.data);
+        
+        let errorMessage = 'Unknown error';
+        if (error.response?.data?.detail) {
+          if (Array.isArray(error.response.data.detail)) {
+            // Handle validation error array
+            errorMessage = error.response.data.detail.map(err => 
+              `${err.loc?.join('.')} ${err.msg}`
+            ).join(', ');
+          } else {
+            errorMessage = error.response.data.detail;
+          }
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Authentication failed. Please login again.';
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Patient not found';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
         toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+        failureCount++;
       }
     }
     
     setUploading(false);
-    setSelectedFiles([]);
     
-    // Reset form
-    setUploadData({
-      study_id: '',
-      series_id: '',
-      modality: '',
-      body_part: '',
-      study_date: '',
-      study_time: '',
-      institution_name: '',
-      referring_physician: ''
-    });
+    if (successCount > 0) {
+      setSelectedFiles([]);
+      // Reset form
+      setUploadData({
+        study_id: '',
+        series_id: '',
+        modality: '',
+        body_part: '',
+        study_date: '',
+        study_time: '',
+        institution_name: '',
+        referring_physician: ''
+      });
+    }
+    
+    if (successCount > 0 && failureCount === 0) {
+      toast.success(`All ${successCount} files uploaded successfully!`);
+    } else if (successCount > 0 && failureCount > 0) {
+      toast.warning(`${successCount} files uploaded, ${failureCount} failed`);
+    }
   };
 
   return (
