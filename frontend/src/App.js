@@ -1252,69 +1252,347 @@ const MedicalImageViewer = () => {
   };
 
   // Advanced image processing functions
+  const applyGaussianFilter = (imageData, sigma) => {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    const output = new Uint8ClampedArray(data);
+    
+    // Generate Gaussian kernel
+    const kernelSize = Math.ceil(sigma * 3) * 2 + 1;
+    const kernel = [];
+    const center = Math.floor(kernelSize / 2);
+    let sum = 0;
+    
+    for (let i = 0; i < kernelSize; i++) {
+      kernel[i] = [];
+      for (let j = 0; j < kernelSize; j++) {
+        const x = i - center;
+        const y = j - center;
+        const value = Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+        kernel[i][j] = value;
+        sum += value;
+      }
+    }
+    
+    // Normalize kernel
+    for (let i = 0; i < kernelSize; i++) {
+      for (let j = 0; j < kernelSize; j++) {
+        kernel[i][j] /= sum;
+      }
+    }
+    
+    // Apply Gaussian filter
+    for (let y = center; y < height - center; y++) {
+      for (let x = center; x < width - center; x++) {
+        let r = 0, g = 0, b = 0;
+        
+        for (let ky = 0; ky < kernelSize; ky++) {
+          for (let kx = 0; kx < kernelSize; kx++) {
+            const py = y + ky - center;
+            const px = x + kx - center;
+            const idx = (py * width + px) * 4;
+            const weight = kernel[ky][kx];
+            
+            r += data[idx] * weight;
+            g += data[idx + 1] * weight;
+            b += data[idx + 2] * weight;
+          }
+        }
+        
+        const outputIdx = (y * width + x) * 4;
+        output[outputIdx] = Math.round(r);
+        output[outputIdx + 1] = Math.round(g);
+        output[outputIdx + 2] = Math.round(b);
+      }
+    }
+    
+    // Copy back to original
+    for (let i = 0; i < data.length; i++) {
+      data[i] = output[i];
+    }
+    
+    return imageData;
+  };
+
+  const applyBilateralFilter = (imageData, spatialSigma, colorSigma) => {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    const output = new Uint8ClampedArray(data);
+    
+    const kernelRadius = Math.ceil(spatialSigma * 2);
+    
+    for (let y = kernelRadius; y < height - kernelRadius; y++) {
+      for (let x = kernelRadius; x < width - kernelRadius; x++) {
+        const centerIdx = (y * width + x) * 4;
+        const centerR = data[centerIdx];
+        const centerG = data[centerIdx + 1];
+        const centerB = data[centerIdx + 2];
+        
+        let sumR = 0, sumG = 0, sumB = 0;
+        let weightSum = 0;
+        
+        for (let dy = -kernelRadius; dy <= kernelRadius; dy++) {
+          for (let dx = -kernelRadius; dx <= kernelRadius; dx++) {
+            const ny = y + dy;
+            const nx = x + dx;
+            const nIdx = (ny * width + nx) * 4;
+            
+            // Spatial weight (Gaussian based on distance)
+            const spatialDist = dx * dx + dy * dy;
+            const spatialWeight = Math.exp(-spatialDist / (2 * spatialSigma * spatialSigma));
+            
+            // Color weight (Gaussian based on color difference)
+            const colorDist = Math.pow(data[nIdx] - centerR, 2) + 
+                             Math.pow(data[nIdx + 1] - centerG, 2) + 
+                             Math.pow(data[nIdx + 2] - centerB, 2);
+            const colorWeight = Math.exp(-colorDist / (2 * colorSigma * colorSigma));
+            
+            const weight = spatialWeight * colorWeight;
+            
+            sumR += data[nIdx] * weight;
+            sumG += data[nIdx + 1] * weight;
+            sumB += data[nIdx + 2] * weight;
+            weightSum += weight;
+          }
+        }
+        
+        output[centerIdx] = Math.round(sumR / weightSum);
+        output[centerIdx + 1] = Math.round(sumG / weightSum);
+        output[centerIdx + 2] = Math.round(sumB / weightSum);
+      }
+    }
+    
+    // Copy back to original
+    for (let i = 0; i < data.length; i++) {
+      data[i] = output[i];
+    }
+    
+    return imageData;
+  };
+
   const applyNoiseReduction = (imageData, threshold) => {
+    if (threshold === 0) return imageData;
+    
+    // Use bilateral filter for edge-preserving noise reduction
+    const spatialSigma = threshold * 3 + 1;
+    const colorSigma = threshold * 50 + 10;
+    
+    // Apply bilateral filtering
+    applyBilateralFilter(imageData, spatialSigma, colorSigma);
+    
+    // Apply additional Gaussian smoothing for strong noise reduction
+    if (threshold > 0.5) {
+      const gaussianSigma = (threshold - 0.5) * 2;
+      applyGaussianFilter(imageData, gaussianSigma);
+    }
+    
+    return imageData;
+  };
+
+  const applyAdvancedBoneRemoval = (imageData, intensity) => {
+    if (intensity === 0) return imageData;
+    
     const data = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
     
-    // Apply median filter for noise reduction
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const idx = (y * width + x) * 4;
+    // Convert to grayscale for processing
+    const grayscale = new Array(width * height);
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      grayscale[i / 4] = gray;
+    }
+    
+    // Calculate local statistics for adaptive thresholding
+    const windowSize = 15;
+    const halfWindow = Math.floor(windowSize / 2);
+    
+    for (let y = halfWindow; y < height - halfWindow; y++) {
+      for (let x = halfWindow; x < width - halfWindow; x++) {
+        const centerIdx = y * width + x;
+        const pixelIdx = centerIdx * 4;
         
-        // Get surrounding pixels
-        const neighbors = [];
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nIdx = ((y + dy) * width + (x + dx)) * 4;
-            neighbors.push(data[nIdx]);
+        // Calculate local mean and standard deviation
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+        
+        for (let dy = -halfWindow; dy <= halfWindow; dy++) {
+          for (let dx = -halfWindow; dx <= halfWindow; dx++) {
+            const ny = y + dy;
+            const nx = x + dx;
+            const nIdx = ny * width + nx;
+            const gray = grayscale[nIdx];
+            
+            sum += gray;
+            sumSq += gray * gray;
+            count++;
           }
         }
         
-        // Apply threshold-based noise reduction
-        neighbors.sort((a, b) => a - b);
-        const median = neighbors[4];
-        const currentPixel = data[idx];
+        const mean = sum / count;
+        const variance = (sumSq / count) - (mean * mean);
+        const stdDev = Math.sqrt(Math.max(0, variance));
         
-        if (Math.abs(currentPixel - median) > threshold) {
-          data[idx] = data[idx + 1] = data[idx + 2] = median;
+        // Adaptive bone detection threshold
+        const adaptiveThreshold = mean + (stdDev * 0.5);
+        const currentGray = grayscale[centerIdx];
+        
+        // Bone suppression based on local statistics
+        if (currentGray > adaptiveThreshold) {
+          // This pixel is likely bone tissue
+          const boneStrength = (currentGray - adaptiveThreshold) / (255 - adaptiveThreshold);
+          const suppressionFactor = 1 - (intensity * boneStrength * 0.8);
+          
+          // Apply morphological opening to preserve edge details
+          const edgeEnhancement = Math.min(1, stdDev / 30);
+          const finalSuppression = suppressionFactor + (edgeEnhancement * intensity * 0.2);
+          
+          data[pixelIdx] *= Math.max(0.1, finalSuppression);
+          data[pixelIdx + 1] *= Math.max(0.1, finalSuppression);
+          data[pixelIdx + 2] *= Math.max(0.1, finalSuppression);
         }
       }
     }
     
-    return imageData;
-  };
-
-  const applyBoneRemoval = (imageData, intensity) => {
-    const data = imageData.data;
-    
+    // Apply contrast enhancement to remaining structures
+    const contrastBoost = 1 + (intensity * 0.3);
     for (let i = 0; i < data.length; i += 4) {
-      const grayscale = (data[i] + data[i + 1] + data[i + 2]) / 3;
-      
-      // Remove high-density pixels (bones appear bright in X-rays)
-      if (grayscale > 200 - (intensity * 50)) {
-        const reduction = intensity * 0.8;
-        data[i] *= (1 - reduction);     // R
-        data[i + 1] *= (1 - reduction); // G
-        data[i + 2] *= (1 - reduction); // B
+      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      if (gray < 200) { // Don't enhance remaining bright pixels
+        data[i] = Math.min(255, data[i] * contrastBoost);
+        data[i + 1] = Math.min(255, data[i + 1] * contrastBoost);
+        data[i + 2] = Math.min(255, data[i + 2] * contrastBoost);
       }
     }
     
     return imageData;
   };
 
-  const applyFleshRemoval = (imageData, intensity) => {
-    const data = imageData.data;
+  const applyAdvancedFleshRemoval = (imageData, intensity) => {
+    if (intensity === 0) return imageData;
     
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    
+    // Convert to grayscale for analysis
+    const grayscale = new Array(width * height);
     for (let i = 0; i < data.length; i += 4) {
-      const grayscale = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      grayscale[i / 4] = gray;
+    }
+    
+    // Calculate global histogram for adaptive processing
+    const histogram = new Array(256).fill(0);
+    for (let i = 0; i < grayscale.length; i++) {
+      histogram[Math.floor(grayscale[i])]++;
+    }
+    
+    // Find optimal threshold using Otsu's method
+    let totalPixels = grayscale.length;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) {
+      sum += i * histogram[i];
+    }
+    
+    let sumB = 0;
+    let wB = 0;
+    let maximum = 0;
+    let optimalThreshold = 0;
+    
+    for (let i = 0; i < 256; i++) {
+      wB += histogram[i];
+      if (wB === 0) continue;
       
-      // Remove low-density pixels (soft tissue appears darker)
-      if (grayscale < 150 + (intensity * 50)) {
-        const reduction = intensity * 0.7;
-        data[i] *= (1 - reduction);     // R
-        data[i + 1] *= (1 - reduction); // G
-        data[i + 2] *= (1 - reduction); // B
+      let wF = totalPixels - wB;
+      if (wF === 0) break;
+      
+      sumB += i * histogram[i];
+      let mB = sumB / wB;
+      let mF = (sum - sumB) / wF;
+      
+      let between = wB * wF * (mB - mF) * (mB - mF);
+      
+      if (between > maximum) {
+        maximum = between;
+        optimalThreshold = i;
+      }
+    }
+    
+    // Apply advanced soft tissue suppression
+    const windowSize = 11;
+    const halfWindow = Math.floor(windowSize / 2);
+    
+    for (let y = halfWindow; y < height - halfWindow; y++) {
+      for (let x = halfWindow; x < width - halfWindow; x++) {
+        const centerIdx = y * width + x;
+        const pixelIdx = centerIdx * 4;
+        const currentGray = grayscale[centerIdx];
+        
+        // Calculate local edge strength
+        let edgeStrength = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const nIdx = (y + dy) * width + (x + dx);
+            edgeStrength += Math.abs(grayscale[nIdx] - currentGray);
+          }
+        }
+        edgeStrength /= 8;
+        
+        // Soft tissue detection (low intensity, low edge strength)
+        const tissueThreshold = optimalThreshold + (intensity * 40);
+        
+        if (currentGray < tissueThreshold && edgeStrength < 20) {
+          // This pixel is likely soft tissue
+          const tissueStrength = 1 - (currentGray / tissueThreshold);
+          const suppressionFactor = 1 - (intensity * tissueStrength * 0.7);
+          
+          // Preserve edges while suppressing uniform tissue areas
+          const edgePreservation = Math.min(1, edgeStrength / 15);
+          const finalSuppression = suppressionFactor + (edgePreservation * intensity * 0.3);
+          
+          data[pixelIdx] *= Math.max(0.15, finalSuppression);
+          data[pixelIdx + 1] *= Math.max(0.15, finalSuppression);
+          data[pixelIdx + 2] *= Math.max(0.15, finalSuppression);
+        } else if (currentGray > tissueThreshold) {
+          // Enhance bone/calcification structures
+          const enhancementFactor = 1 + (intensity * 0.4);
+          data[pixelIdx] = Math.min(255, data[pixelIdx] * enhancementFactor);
+          data[pixelIdx + 1] = Math.min(255, data[pixelIdx + 1] * enhancementFactor);
+          data[pixelIdx + 2] = Math.min(255, data[pixelIdx + 2] * enhancementFactor);
+        }
+      }
+    }
+    
+    // Apply final sharpening to enhance remaining structures
+    if (intensity > 0.3) {
+      const sharpenKernel = [
+        [0, -0.5, 0],
+        [-0.5, 3, -0.5],
+        [0, -0.5, 0]
+      ];
+      
+      const tempData = new Uint8ClampedArray(data);
+      
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          const centerIdx = (y * width + x) * 4;
+          
+          for (let c = 0; c < 3; c++) {
+            let sum = 0;
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                const nIdx = ((y + dy) * width + (x + dx)) * 4 + c;
+                sum += tempData[nIdx] * sharpenKernel[dy + 1][dx + 1];
+              }
+            }
+            data[centerIdx + c] = Math.max(0, Math.min(255, sum));
+          }
+        }
       }
     }
     
