@@ -857,7 +857,9 @@ const ImageUpload = () => {
         
         toast.success(`${file.name} uploaded successfully`);
       } catch (error) {
-        toast.error(`Failed to upload ${file.name}`);
+        console.error('Upload error:', error);
+        const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+        toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
       }
     }
     
