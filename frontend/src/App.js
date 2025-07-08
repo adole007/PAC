@@ -834,6 +834,14 @@ const ImageUpload = () => {
       return;
     }
 
+    // Validate required fields
+    if (!uploadData.study_id || !uploadData.series_id || !uploadData.modality || 
+        !uploadData.body_part || !uploadData.study_date || !uploadData.study_time || 
+        !uploadData.institution_name || !uploadData.referring_physician) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
     setUploading(true);
     
     for (const file of selectedFiles) {
@@ -849,6 +857,9 @@ const ImageUpload = () => {
         formData.append('institution_name', uploadData.institution_name);
         formData.append('referring_physician', uploadData.referring_physician);
 
+        console.log('Uploading to patient:', selectedPatient);
+        console.log('Upload data:', uploadData);
+        
         await axios.post(`${API}/patients/${selectedPatient}/images`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
