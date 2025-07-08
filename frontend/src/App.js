@@ -2428,11 +2428,11 @@ const MedicalImageViewer = () => {
 
                   {/* Advanced Image Processing Controls */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Advanced Image Processing</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Advanced Medical Image Processing</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Noise Removal: {(viewerState.noiseThreshold * 100).toFixed(0)}%
+                          Advanced Noise Reduction: {(viewerState.noiseThreshold * 100).toFixed(0)}%
                         </label>
                         <input
                           type="range"
@@ -2443,12 +2443,12 @@ const MedicalImageViewer = () => {
                           onChange={(e) => setViewerState(prev => ({...prev, noiseThreshold: parseFloat(e.target.value)}))}
                           className="w-full"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Removes image noise using median filtering</p>
+                        <p className="text-xs text-gray-500 mt-1">Bilateral filtering with edge preservation & Gaussian smoothing</p>
                       </div>
                       
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Bone Removal: {(viewerState.boneRemoval * 100).toFixed(0)}%
+                          Intelligent Bone Suppression: {(viewerState.boneRemoval * 100).toFixed(0)}%
                         </label>
                         <input
                           type="range"
@@ -2459,12 +2459,12 @@ const MedicalImageViewer = () => {
                           onChange={(e) => setViewerState(prev => ({...prev, boneRemoval: parseFloat(e.target.value)}))}
                           className="w-full"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Reduces high-density structures (bones)</p>
+                        <p className="text-xs text-gray-500 mt-1">Adaptive thresholding with local statistics & morphological operations</p>
                       </div>
                       
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Flesh Removal: {(viewerState.fleshRemoval * 100).toFixed(0)}%
+                          Smart Soft Tissue Removal: {(viewerState.fleshRemoval * 100).toFixed(0)}%
                         </label>
                         <input
                           type="range"
@@ -2475,7 +2475,22 @@ const MedicalImageViewer = () => {
                           onChange={(e) => setViewerState(prev => ({...prev, fleshRemoval: parseFloat(e.target.value)}))}
                           className="w-full"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Reduces low-density structures (soft tissue)</p>
+                        <p className="text-xs text-gray-500 mt-1">Otsu thresholding with edge preservation & contrast enhancement</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <h5 className="text-xs font-medium text-blue-800 mb-2">Algorithm Information:</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-blue-700">
+                        <div>
+                          <strong>Noise Reduction:</strong> Uses bilateral filtering to preserve edges while removing noise, with additional Gaussian smoothing for heavy noise.
+                        </div>
+                        <div>
+                          <strong>Bone Suppression:</strong> Employs adaptive thresholding based on local statistics to intelligently identify and suppress bone structures while preserving details.
+                        </div>
+                        <div>
+                          <strong>Tissue Removal:</strong> Utilizes Otsu's automatic thresholding with edge detection to selectively remove soft tissue while enhancing bone structures.
+                        </div>
                       </div>
                     </div>
                   </div>
