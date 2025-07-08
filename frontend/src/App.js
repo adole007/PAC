@@ -938,6 +938,16 @@ const ImageUpload = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">Upload Instructions:</h3>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Select a patient from the dropdown</li>
+            <li>• Fill in all required fields (marked with *)</li>
+            <li>• Choose one or more image files</li>
+            <li>• Supported formats: DICOM (.dcm), JPEG, PNG, TIFF</li>
+          </ul>
+        </div>
+        
         <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
