@@ -193,8 +193,9 @@ async def get_redis_client():
     global redis_client
     if not config.USE_MEMORY_CACHE and redis_client is None:
         try:
-            redis_client = await aioredis.from_url(config.REDIS_URL)
-            logger.info("Redis client connected successfully")
+            # Redis client disabled due to Python 3.11 compatibility issues
+            redis_client = None
+            logger.info("Redis client disabled due to Python 3.11 compatibility issues")
         except Exception as e:
             logger.warning(f"Redis connection failed, using memory cache: {e}")
             redis_client = None
