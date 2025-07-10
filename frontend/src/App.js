@@ -554,9 +554,12 @@ const PatientExaminationView = () => {
 
   const fetchPatientExaminations = async (patientId) => {
     try {
-      const response = await axios.get(`${getApiUrl()}/patients/${patientId}/examinations`);
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const response = await axios.get(`${getApiUrl()}/patients/${patientId}/examinations`, { headers });
       setExaminations(response.data);
     } catch (error) {
+      console.error('Error fetching patient examinations:', error);
       toast.error('Failed to fetch patient examinations');
     }
   };
