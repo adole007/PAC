@@ -1432,7 +1432,18 @@ async def create_examination(examination_data: ExaminationCreate, current_user: 
         
         conn.commit()
         
-        examination = Examination(**dict(examination_record))
+        # Convert date/time fields to strings for Pydantic validation
+        exam_dict = dict(examination_record)
+        if exam_dict.get('examination_date'):
+            exam_dict['examination_date'] = str(exam_dict['examination_date'])
+        if exam_dict.get('examination_time'):
+            exam_dict['examination_time'] = str(exam_dict['examination_time'])
+        if exam_dict.get('created_at'):
+            exam_dict['created_at'] = exam_dict['created_at'].isoformat() if hasattr(exam_dict['created_at'], 'isoformat') else str(exam_dict['created_at'])
+        if exam_dict.get('updated_at'):
+            exam_dict['updated_at'] = exam_dict['updated_at'].isoformat() if hasattr(exam_dict['updated_at'], 'isoformat') else str(exam_dict['updated_at'])
+        
+        examination = Examination(**exam_dict)
         logger.info(f"Examination created: {examination.examination_type} for patient {examination.patient_id}")
         
         return examination
