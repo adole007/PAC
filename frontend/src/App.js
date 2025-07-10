@@ -1739,7 +1739,7 @@ const ImageUpload = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.post(`${getApiUrl()}/patients`, newPatient);
+      const response = await axios.get(`${getApiUrl()}/patients`);
       setPatients(response.data);
     } catch (error) {
       toast.error('Failed to fetch patients');
