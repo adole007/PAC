@@ -566,14 +566,18 @@ const PatientExaminationView = () => {
 
   const fetchExaminationDetails = async (examinationId) => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
       // Fetch examination images
-      const imagesResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/images`);
+      const imagesResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/images`, { headers });
       setExaminationImages(imagesResponse.data);
 
       // Fetch examination reports
-      const reportsResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/reports`);
+      const reportsResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/reports`, { headers });
       setExaminationReports(reportsResponse.data);
     } catch (error) {
+      console.error('Error fetching examination details:', error);
       toast.error('Failed to fetch examination details');
     }
   };
