@@ -36,13 +36,13 @@ let API = `${BACKEND_URL}/api`;
 // Function to check if local backend is running
 const checkLocalBackend = async () => {
   // Always check for local backend (not just in development)
-  console.log('🔍 Checking for local backend at http://localhost:8000/health...');
+  console.log('🔍 Checking for local backend at http://localhost:8001/health...');
   
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
     
-    const response = await fetch('http://localhost:8000/health', {
+    const response = await fetch('http://localhost:8001/health', {
       signal: controller.signal,
       method: 'GET',
       headers: {
@@ -54,7 +54,7 @@ const checkLocalBackend = async () => {
     
     if (response.ok) {
       const healthData = await response.json();
-      console.log('🔧 Local backend detected and running at http://localhost:8000');
+      console.log('🔧 Local backend detected and running at http://localhost:8001');
       console.log('🔧 Health check response:', healthData);
       return true;
     } else {
