@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Endpoint Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        img { max-width: 400px; margin: 10px; border: 1px solid #ddd; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>PAC Image Endpoint Test</h1>
+    
+    <button onclick="testImageEndpoints()">Test Image Endpoints</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="status"></div>
+    <div id="results"></div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8000/api';
+        const IMAGE_ID = '31ff7ae9-c97b-4d8e-948b-209f0d26c1d5';
+        
+        let authToken = null;
+        
+        function log(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+            statusDiv.appendChild(div);
+            console.log(message);
+        }
+        
+        function clearResults() {
+            document.getElementById('status').innerHTML = '';
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function login() {
+            try {
+                const response = await fetch(`${BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'clinician',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    log('✅ Successfully logged in', 'success');
+                    return true;
+                } else {
+                    log(`❌ Login failed: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testImageData() {
+            if (!authToken) {
+                log('❌ No auth token available', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BASE_URL}/images/${IMAGE_ID}/data`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    log(`✅ Image data: ${response.status} ${response.headers.get('content-type')}`, 'success');
+                    
+                    // Create image element
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    const img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = 'Medical Image';
+                    img.onload = () => {
+                        log(`✅ Image loaded successfully (${img.naturalWidth}x${img.naturalHeight})`, 'success');
+                        URL.revokeObjectURL(imageUrl);
+                    };
+                    img.onerror = () => {
+                        log('❌ Failed to load image', 'error');
+                        URL.revokeObjectURL(imageUrl);
+                    };
+                    
+                    document.getElementById('results').appendChild(img);
+                } else {
+                    log(`❌ Image data failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Image data error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testThumbnail() {
+            if (!authToken) {
+                log('❌ No auth token available', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BASE_URL}/images/${IMAGE_ID}/thumbnail`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    log(`✅ Thumbnail: ${response.status} ${response.headers.get('content-type')}`, 'success');
+                    
+                    // Create image element
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    const img = document.createElement('img');
+                    img.src = imageUrl;
+                    img.alt = 'Thumbnail';
+                    img.style.maxWidth = '200px';
+                    img.onload = () => {
+                        log(`✅ Thumbnail loaded successfully (${img.naturalWidth}x${img.naturalHeight})`, 'success');
+                        URL.revokeObjectURL(imageUrl);
+                    };
+                    img.onerror = () => {
+                        log('❌ Failed to load thumbnail', 'error');
+                        URL.revokeObjectURL(imageUrl);
+                    };
+                    
+                    document.getElementById('results').appendChild(img);
+                } else {
+                    log(`❌ Thumbnail failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Thumbnail error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testImageEndpoints() {
+            clearResults();
+            log('🔄 Starting image endpoint tests...');
+            
+            // First login
+            const loginSuccess = await login();
+            if (!loginSuccess) {
+                return;
+            }
+            
+            // Test image data
+            await testImageData();
+            
+            // Test thumbnail
+            await testThumbnail();
+            
+            log('✅ All tests completed', 'success');
+        }
+    </script>
+</body>
+</html>

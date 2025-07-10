@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server_postgresql_fully_optimized.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "server_postgresql_fully_optimized.py"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "postgresql://postgres.fjmlshmkdaufqkefmixw:jajuwa%40pac%40@aws-0-eu-north-1.pooler.supabase.com:5432/postgres",
+    "SECRET_KEY": "jajuwa_pac_system"
+  }
+}

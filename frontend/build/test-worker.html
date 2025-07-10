@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Worker Test</title>
+</head>
+<body>
+    <h1>Web Worker Test for Advanced Image Processing</h1>
+    <canvas id="testCanvas" width="100" height="100" style="border: 1px solid black;"></canvas>
+    <br><br>
+    <button onclick="testWorker()">Test Worker</button>
+    <div id="results"></div>
+
+    <script>
+        function testWorker() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing Web Worker...</p>';
+            
+            // Test if Web Worker is available
+            if (typeof Worker === 'undefined') {
+                results.innerHTML += '<p style="color: red;">Web Workers not supported in this browser</p>';
+                return;
+            }
+            
+            try {
+                // Create a simple test image data
+                const canvas = document.getElementById('testCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Draw a simple test pattern
+                ctx.fillStyle = 'red';
+                ctx.fillRect(0, 0, 50, 50);
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(50, 0, 50, 50);
+                ctx.fillStyle = 'green';
+                ctx.fillRect(0, 50, 50, 50);
+                ctx.fillStyle = 'yellow';
+                ctx.fillRect(50, 50, 50, 50);
+                
+                const imageData = ctx.getImageData(0, 0, 100, 100);
+                
+                // Test the worker
+                const worker = new Worker('/imageProcessingWorker.js');
+                
+                worker.onmessage = function(e) {
+                    const { type, processingId, result, error } = e.data;
+                    
+                    if (type === 'processingComplete') {
+                        results.innerHTML += '<p style="color: green;">✓ Worker processing completed successfully</p>';
+                        results.innerHTML += `<p>Processed ${result.width}x${result.height} image</p>`;
+                        
+                        // Apply the result back to canvas to see the effect
+                        ctx.putImageData(result, 0, 0);
+                        
+                        worker.terminate();
+                    } else if (type === 'processingError') {
+                        results.innerHTML += `<p style="color: red;">✗ Worker processing failed: ${error}</p>`;
+                        worker.terminate();
+                    }
+                };
+                
+                worker.onerror = function(error) {
+                    results.innerHTML += `<p style="color: red;">✗ Worker error: ${error.message}</p>`;
+                    worker.terminate();
+                };
+                
+                // Test noise reduction
+                worker.postMessage({
+                    type: 'noiseReduction',
+                    imageData: {
+                        data: imageData.data,
+                        width: imageData.width,
+                        height: imageData.height
+                    },
+                    params: {
+                        threshold: 0.5
+                    },
+                    processingId: 1
+                });
+                
+                results.innerHTML += '<p>Sent test data to worker...</p>';
+                
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">✗ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

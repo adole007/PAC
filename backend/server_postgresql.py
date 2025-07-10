@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, status
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr
@@ -22,7 +23,7 @@ from PIL import Image
 import io
 
 # Load environment variables
-ROOT_DIR = Path(__file__).parent
+ROOT_DIR = Path(__file__).parent.parent  # Go up one directory to the project root
 load_dotenv(ROOT_DIR / '.env')
 
 # Security configuration
@@ -226,50 +227,105 @@ def process_dicom_file(file_content: bytes):
         
         # Extract image data
         if hasattr(ds, 'pixel_array'):
-            pixel_array = ds.pixel_array
-            
-            # Apply windowing if available
-            window_center = getattr(ds, 'WindowCenter', None)
-            window_width = getattr(ds, 'WindowWidth', None)
-            
-            if window_center and window_width:
-                # Convert to appropriate type
-                if isinstance(window_center, (list, tuple)):
-                    window_center = window_center[0]
-                if isinstance(window_width, (list, tuple)):
-                    window_width = window_width[0]
+            try:
+                pixel_array = ds.pixel_array
+                logger.info(f"Original pixel array shape: {pixel_array.shape}, dtype: {pixel_array.dtype}")
+                logger.info(f"Original pixel array range: {pixel_array.min()} to {pixel_array.max()}")
                 
-                # Apply windowing
-                img_min = window_center - window_width // 2
-                img_max = window_center + window_width // 2
-                pixel_array = np.clip(pixel_array, img_min, img_max)
-            
-            # Normalize to 0-255 range
-            pixel_array = ((pixel_array - pixel_array.min()) / (pixel_array.max() - pixel_array.min()) * 255).astype(np.uint8)
-            
-            # Convert to PIL Image
-            image = Image.fromarray(pixel_array)
-            
-            # Create thumbnail
-            thumbnail = image.copy()
-            thumbnail.thumbnail((200, 200), Image.Resampling.LANCZOS)
-            
-            # Convert to base64
-            img_buffer = io.BytesIO()
-            image.save(img_buffer, format='PNG')
-            img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
-            
-            thumb_buffer = io.BytesIO()
-            thumbnail.save(thumb_buffer, format='PNG')
-            thumb_base64 = base64.b64encode(thumb_buffer.getvalue()).decode()
-            
-            return {
-                'metadata': metadata,
-                'image_data': img_base64,
-                'thumbnail_data': thumb_base64,
-                'window_center': float(window_center) if window_center else None,
-                'window_width': float(window_width) if window_width else None
-            }
+                # Handle different pixel array types
+                if len(pixel_array.shape) == 3:
+                    # Multi-frame or color image - take first frame or convert to grayscale
+                    if pixel_array.shape[2] == 3:  # RGB
+                        pixel_array = np.mean(pixel_array, axis=2)  # Convert to grayscale
+                    else:
+                        pixel_array = pixel_array[:, :, 0]  # Take first frame
+                
+                # Apply windowing if available
+                window_center = getattr(ds, 'WindowCenter', None)
+                window_width = getattr(ds, 'WindowWidth', None)
+                
+                if window_center and window_width:
+                    # Convert to appropriate type
+                    if isinstance(window_center, (list, tuple)):
+                        window_center = float(window_center[0])
+                    else:
+                        window_center = float(window_center)
+                        
+                    if isinstance(window_width, (list, tuple)):
+                        window_width = float(window_width[0])
+                    else:
+                        window_width = float(window_width)
+                    
+                    # Apply windowing
+                    img_min = window_center - window_width / 2
+                    img_max = window_center + window_width / 2
+                    pixel_array = np.clip(pixel_array, img_min, img_max)
+                    logger.info(f"Applied windowing: center={window_center}, width={window_width}")
+                
+                # Normalize to 0-255 range with safe division
+                pixel_min = pixel_array.min()
+                pixel_max = pixel_array.max()
+                
+                if pixel_max == pixel_min:
+                    # Handle case where all pixels have the same value
+                    logger.warning("All pixels have the same value, creating uniform image")
+                    pixel_array = np.full_like(pixel_array, 128, dtype=np.uint8)
+                else:
+                    # Safe normalization
+                    pixel_array = ((pixel_array - pixel_min) / (pixel_max - pixel_min) * 255).astype(np.uint8)
+                
+                logger.info(f"Normalized pixel array range: {pixel_array.min()} to {pixel_array.max()}")
+                
+                # Convert to PIL Image
+                if pixel_array.dtype != np.uint8:
+                    pixel_array = pixel_array.astype(np.uint8)
+                    
+                # Get original dimensions from DICOM
+                original_height, original_width = pixel_array.shape
+                logger.info(f"Original DICOM dimensions: {original_width}x{original_height}")
+                
+                # Create PIL Image with original dimensions preserved
+                image = Image.fromarray(pixel_array, mode='L')  # Grayscale mode
+                
+                # Verify the image maintains original dimensions
+                if image.size != (original_width, original_height):
+                    logger.warning(f"Image size mismatch: PIL={image.size}, DICOM=({original_width}x{original_height})")
+                    # Resize to match original DICOM dimensions if needed
+                    image = image.resize((original_width, original_height), Image.Resampling.LANCZOS)
+                
+                # Create thumbnail
+                thumbnail = image.copy()
+                thumbnail.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                
+                # Convert to base64
+                img_buffer = io.BytesIO()
+                image.save(img_buffer, format='PNG')
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode()
+                
+                thumb_buffer = io.BytesIO()
+                thumbnail.save(thumb_buffer, format='PNG')
+                thumb_base64 = base64.b64encode(thumb_buffer.getvalue()).decode()
+                
+                logger.info(f"Successfully processed DICOM image: {image.size} (preserved original dimensions)")
+                
+                return {
+                    'metadata': metadata,
+                    'image_data': img_base64,
+                    'thumbnail_data': thumb_base64,
+                    'window_center': float(window_center) if window_center else None,
+                    'window_width': float(window_width) if window_width else None
+                }
+                
+            except Exception as img_error:
+                logger.error(f"Error processing DICOM pixel array: {str(img_error)}")
+                # Return metadata even if image processing fails
+                return {
+                    'metadata': metadata,
+                    'image_data': None,
+                    'thumbnail_data': None,
+                    'window_center': None,
+                    'window_width': None
+                }
         
         return {
             'metadata': metadata,
@@ -695,32 +751,59 @@ async def get_patient_images(patient_id: str, current_user: User = Depends(get_c
     conn = get_db_connection()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     
-    # Check if patient exists
-    cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
-    if not cursor.fetchone():
+    try:
+        # Check if patient exists
+        cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
+        if not cursor.fetchone():
+            conn.close()
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Exclude large base64 data fields from the list response to prevent memory issues
+        cursor.execute("""
+            SELECT id, patient_id, study_id, series_id, instance_id, modality,
+                   body_part, study_date, study_time, institution_name, referring_physician,
+                   dicom_metadata, original_filename, file_size, image_format, 
+                   window_center, window_width, uploaded_at, uploaded_by, access_log
+            FROM medical_images WHERE patient_id = %s
+        """, (patient_id,))
+        image_rows = cursor.fetchall()
+        
+        logger.info(f"Found {len(image_rows)} images for patient {patient_id}")
+        
+        images = []
+        for row in image_rows:
+            try:
+                image_dict = dict_from_row(cursor, row)
+                # Convert date/time fields to strings
+                if image_dict.get('study_date'):
+                    image_dict['study_date'] = str(image_dict['study_date'])
+                if image_dict.get('study_time'):
+                    image_dict['study_time'] = str(image_dict['study_time'])
+                if image_dict.get('uploaded_at'):
+                    image_dict['uploaded_at'] = image_dict['uploaded_at'].isoformat() if hasattr(image_dict['uploaded_at'], 'isoformat') else str(image_dict['uploaded_at'])
+                # Parse JSON fields safely
+                try:
+                    image_dict['dicom_metadata'] = json.loads(image_dict.get('dicom_metadata') or '{}')
+                except:
+                    image_dict['dicom_metadata'] = {}
+                try:
+                    image_dict['access_log'] = json.loads(image_dict.get('access_log') or '[]')
+                except:
+                    image_dict['access_log'] = []
+                # Set empty strings for base64 data fields that are fetched separately
+                image_dict['image_data'] = ''
+                image_dict['thumbnail_data'] = ''
+                images.append(MedicalImage(**image_dict))
+            except Exception as e:
+                logger.error(f"Error processing image row: {e}")
+                continue
+        
         conn.close()
-        raise HTTPException(status_code=404, detail="Patient not found")
-    
-    cursor.execute("SELECT * FROM medical_images WHERE patient_id = %s", (patient_id,))
-    image_rows = cursor.fetchall()
-    
-    images = []
-    for row in image_rows:
-        image_dict = dict_from_row(cursor, row)
-        # Convert date/time fields to strings
-        if image_dict.get('study_date'):
-            image_dict['study_date'] = str(image_dict['study_date'])
-        if image_dict.get('study_time'):
-            image_dict['study_time'] = str(image_dict['study_time'])
-        if image_dict.get('uploaded_at'):
-            image_dict['uploaded_at'] = image_dict['uploaded_at'].isoformat() if hasattr(image_dict['uploaded_at'], 'isoformat') else str(image_dict['uploaded_at'])
-        # Parse JSON fields safely
-        image_dict['dicom_metadata'] = json.loads(image_dict.get('dicom_metadata') or '{}')
-        image_dict['access_log'] = json.loads(image_dict.get('access_log') or '[]')
-        images.append(MedicalImage(**image_dict))
-    
-    conn.close()
-    return images
+        return images
+    except Exception as e:
+        logger.error(f"Error in get_patient_images: {e}")
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"Error fetching patient images: {str(e)}")
 
 @api_router.get("/images/{image_id}", response_model=MedicalImage)
 async def get_medical_image(image_id: str, current_user: User = Depends(get_current_user)):
@@ -763,6 +846,93 @@ async def delete_medical_image(image_id: str, current_user: User = Depends(get_c
     
     conn.close()
     return {"message": "Image deleted successfully"}
+
+@api_router.get("/images/{image_id}/data")
+async def get_image_data(image_id: str, current_user: User = Depends(get_current_user)):
+    """Serve the raw image data as a file response"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    cursor.execute("SELECT image_data, image_format, original_filename FROM medical_images WHERE id = %s", (image_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    image_data_b64, image_format, original_filename = result
+    conn.close()
+    
+    try:
+        # Decode base64 image data
+        image_data = base64.b64decode(image_data_b64)
+        
+        # Determine content type based on format
+        content_type_map = {
+            'DICOM': 'application/dicom',
+            'JPEG': 'image/jpeg',
+            'JPG': 'image/jpeg', 
+            'PNG': 'image/png',
+            'GIF': 'image/gif',
+            'BMP': 'image/bmp',
+            'TIFF': 'image/tiff'
+        }
+        
+        content_type = content_type_map.get(image_format.upper(), 'application/octet-stream')
+        
+        # Create response with appropriate headers
+        response = Response(
+            content=image_data,
+            media_type=content_type,
+            headers={
+                'Content-Disposition': f'inline; filename="{original_filename}"',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error serving image data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error serving image data")
+
+@api_router.get("/images/{image_id}/thumbnail")
+async def get_image_thumbnail(image_id: str, current_user: User = Depends(get_current_user)):
+    """Serve the thumbnail image data as a file response"""
+    conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    cursor.execute("SELECT thumbnail_data, original_filename FROM medical_images WHERE id = %s", (image_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    thumbnail_data_b64, original_filename = result
+    conn.close()
+    
+    try:
+        # Decode base64 thumbnail data
+        thumbnail_data = base64.b64decode(thumbnail_data_b64)
+        
+        # Thumbnails are always PNG format
+        response = Response(
+            content=thumbnail_data,
+            media_type='image/png',
+            headers={
+                'Content-Disposition': f'inline; filename="thumb_{original_filename}"',
+                'Cache-Control': 'max-age=3600'  # Thumbnails can be cached for 1 hour
+            }
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error serving thumbnail data: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error serving thumbnail data")
 
 # Include the router in the main app
 app.include_router(api_router)

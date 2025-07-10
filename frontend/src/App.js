@@ -25,11 +25,89 @@ import {
   Move,
   MousePointer,
   Moon,
-  Sun
+  Sun,
+  X
 } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Smart backend URL detection with automatic local detection
+let BACKEND_URL = 'https://pac-ik6nachlb-adole007s-projects.vercel.app'; // Default to production
+let API = `${BACKEND_URL}/api`;
+
+// Function to check if local backend is running
+const checkLocalBackend = async () => {
+  // Always check for local backend (not just in development)
+  console.log('🔍 Checking for local backend at http://localhost:8000/health...');
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+    
+    const response = await fetch('http://localhost:8000/health', {
+      signal: controller.signal,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const healthData = await response.json();
+      console.log('🔧 Local backend detected and running at http://localhost:8000');
+      console.log('🔧 Health check response:', healthData);
+      return true;
+    } else {
+      console.log('🌐 Local backend responded with error:', response.status, response.statusText);
+    }
+  } catch (error) {
+    // Local backend not running or not responding
+    console.log('🌐 Local backend not detected, using production backend');
+    console.log('🌐 Health check error:', error.message);
+  }
+  
+  return false;
+};
+
+// Initialize backend URL
+const initializeBackend = async () => {
+  console.log('🔄 Initializing backend URL detection...');
+  console.log('🔄 NODE_ENV:', process.env.NODE_ENV);
+  console.log('🔄 Current BACKEND_URL:', BACKEND_URL);
+  
+  // Always check for local backend first
+  console.log('🔧 Checking for local backend...');
+  const isLocalRunning = await checkLocalBackend();
+  if (isLocalRunning) {
+    BACKEND_URL = 'http://localhost:8000';
+    console.log('🔧 ✅ Switched to LOCAL backend:', BACKEND_URL);
+  } else {
+    console.log('🌐 ➡️ Using PRODUCTION backend:', BACKEND_URL);
+  }
+  
+  API = `${BACKEND_URL}/api`;
+  console.log('🔄 ✅ Final API URL:', API);
+  return BACKEND_URL;
+};
+
+// Export functions to get the current URLs
+const getApiUrl = () => API;
+const getBackendUrl = () => BACKEND_URL;
+
+// Debug function to log current URLs
+const logCurrentUrls = () => {
+  console.log('Current BACKEND_URL:', BACKEND_URL);
+  console.log('Current API URL:', API);
+};
+
+// Make these available globally for debugging
+window.PAC_DEBUG = {
+  getApiUrl,
+  getBackendUrl,
+  logCurrentUrls,
+  initializeBackend,
+  checkLocalBackend
+};
 
 // Theme Context
 const ThemeContext = React.createContext();
@@ -74,20 +152,30 @@ const AuthContext = React.createContext();
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [backendInitialized, setBackendInitialized] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchCurrentUser();
-    } else {
-      setLoading(false);
-    }
+    const initializeApp = async () => {
+      // First, detect and set the correct backend URL
+      await initializeBackend();
+      setBackendInitialized(true);
+      
+      // Then proceed with authentication
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        fetchCurrentUser();
+      } else {
+        setLoading(false);
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await axios.get(`${API}/auth/me`);
+      const response = await axios.get(`${getApiUrl()}/auth/me`);
       setUser(response.data);
     } catch (error) {
       localStorage.removeItem('token');
@@ -99,7 +187,7 @@ const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post(`${API}/auth/login`, { username, password });
+      const response = await axios.post(`${getApiUrl()}/auth/login`, { username, password });
       const { access_token, user: userData } = response.data;
       
       localStorage.setItem('token', access_token);
@@ -349,6 +437,91 @@ const DashboardLayout = ({ children }) => {
   );
 };
 
+// ThumbnailImage Component
+const ThumbnailImage = ({ imageId, thumbnailData, className }) => {
+  const [imageSrc, setImageSrc] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const loadThumbnail = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // Fallback to base64 if no token
+        setImageSrc(`data:image/png;base64,${thumbnailData}`);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Choose endpoint based on backend type
+        const isLocalBackend = API.includes('localhost');
+        const endpoint = isLocalBackend ? '/thumbnail' : '/thumbnail-base64';
+        const thumbnailUrl = `${API}/images/${imageId}${endpoint}`;
+        
+        const response = await fetch(thumbnailUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            // Base64 endpoint returns JSON
+            const data = await response.json();
+            if (data.format === 'base64') {
+              setImageSrc(`data:${data.media_type};base64,${data.thumbnail_data}`);
+            }
+          } else {
+            // Binary endpoint returns blob
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            setImageSrc(url);
+            
+            // Clean up the URL when component unmounts
+            return () => URL.revokeObjectURL(url);
+          }
+        } else {
+          throw new Error('Failed to load thumbnail');
+        }
+      } catch (err) {
+        console.error('Error loading thumbnail:', err);
+        // Fallback to base64 if endpoint fails
+        setImageSrc(`data:image/png;base64,${thumbnailData}`);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadThumbnail();
+  }, [imageId, thumbnailData]);
+
+  if (loading) {
+    return (
+      <div className={`${className} bg-gray-200 animate-pulse flex items-center justify-center`}>
+        <ImageIcon className="w-4 h-4 text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageSrc}
+      alt="Thumbnail"
+      className={className}
+      onError={() => {
+        if (!error) {
+          // Final fallback to base64 if everything fails
+          setImageSrc(`data:image/png;base64,${thumbnailData}`);
+          setError(true);
+        }
+      }}
+    />
+  );
+};
+
 // Patient Management Component
 const PatientManagement = () => {
   const [patients, setPatients] = useState([]);
@@ -356,6 +529,9 @@ const PatientManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
+  const [patientImageCounts, setPatientImageCounts] = useState({});
+  const [showQuickUpload, setShowQuickUpload] = useState(false);
+  const [quickUploadPatient, setQuickUploadPatient] = useState(null);
   const [formData, setFormData] = useState({
     patient_id: '',
     first_name: '',
@@ -382,8 +558,10 @@ const PatientManagement = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get(`${API}/patients`);
+      const response = await axios.get(`${getApiUrl()}/patients`);
       setPatients(response.data);
+      // Fetch image counts for each patient
+      await fetchPatientImageCounts(response.data);
     } catch (error) {
       toast.error('Failed to fetch patients');
     } finally {
@@ -391,14 +569,45 @@ const PatientManagement = () => {
     }
   };
 
+  const fetchPatientImageCounts = async (patientList) => {
+    const counts = {};
+    try {
+      // Fetch image counts for all patients
+      for (const patient of patientList) {
+        try {
+          const response = await axios.get(`${getApiUrl()}/patients/${patient.id}/images`);
+          counts[patient.id] = response.data.length;
+        } catch (error) {
+          // If patient has no images or endpoint fails, set count to 0
+          counts[patient.id] = 0;
+        }
+      }
+      setPatientImageCounts(counts);
+    } catch (error) {
+      console.error('Failed to fetch patient image counts:', error);
+    }
+  };
+
+  const handleQuickUpload = (patient) => {
+    setQuickUploadPatient(patient);
+    setShowQuickUpload(true);
+  };
+
+  const handleQuickUploadComplete = () => {
+    setShowQuickUpload(false);
+    setQuickUploadPatient(null);
+    // Refresh patient data to update image counts
+    fetchPatients();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingPatient) {
-        await axios.put(`${API}/patients/${editingPatient.id}`, formData);
+        await axios.put(`${getApiUrl()}/patients/${editingPatient.id}`, formData);
         toast.success('Patient updated successfully');
       } else {
-        await axios.post(`${API}/patients`, formData);
+        await axios.post(`${getApiUrl()}/patients`, formData);
         toast.success('Patient created successfully');
       }
       
@@ -438,7 +647,7 @@ const PatientManagement = () => {
   const handleDelete = async (patientId) => {
     if (window.confirm('Are you sure you want to delete this patient?')) {
       try {
-        await axios.delete(`${API}/patients/${patientId}`);
+        await axios.delete(`${getApiUrl()}/patients/${patientId}`);
         toast.success('Patient deleted successfully');
         fetchPatients();
       } catch (error) {
@@ -514,6 +723,9 @@ const PatientManagement = () => {
                   Patient ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Image Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -531,39 +743,71 @@ const PatientManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPatientsForManagement.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {patient.patient_id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.first_name} {patient.last_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.date_of_birth}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.gender}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {patient.phone}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => handleEdit(patient)}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(patient.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filteredPatientsForManagement.map((patient) => {
+                const imageCount = patientImageCounts[patient.id] || 0;
+                const hasImages = imageCount > 0;
+                
+                return (
+                  <tr key={patient.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {patient.patient_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center space-x-3">
+                        {/* Status Indicator */}
+                        <div className={`w-3 h-3 rounded-full ${
+                          hasImages ? 'bg-green-500' : 'bg-red-500'
+                        }`} title={hasImages ? `${imageCount} images uploaded` : 'No images uploaded'}></div>
+                        
+                        {/* Image Count Badge */}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          hasImages 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {imageCount} {imageCount === 1 ? 'image' : 'images'}
+                        </span>
+                        
+                        {/* Quick Upload Button */}
+                        <button
+                          onClick={() => handleQuickUpload(patient)}
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-md hover:bg-blue-200 transition-colors"
+                          title="Quick upload images for this patient"
+                        >
+                          <Upload className="w-3 h-3 mr-1" />
+                          Upload
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {patient.first_name} {patient.last_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {patient.date_of_birth}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {patient.gender}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {patient.phone}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleEdit(patient)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(patient.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -789,6 +1033,267 @@ const PatientManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Quick Upload Modal */}
+      {showQuickUpload && quickUploadPatient && (
+        <QuickUploadModal 
+          patient={quickUploadPatient}
+          onClose={() => setShowQuickUpload(false)}
+          onComplete={handleQuickUploadComplete}
+        />
+      )}
+    </div>
+  );
+};
+
+// Quick Upload Modal Component
+const QuickUploadModal = ({ patient, onClose, onComplete }) => {
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadData, setUploadData] = useState({
+    study_id: `STUDY_${Date.now()}`,
+    series_id: `SERIES_${Date.now()}`,
+    modality: 'CT',
+    body_part: 'CHEST',
+    study_date: new Date().toISOString().split('T')[0],
+    study_time: new Date().toTimeString().split(' ')[0],
+    institution_name: 'Jajuwa Healthcare',
+    referring_physician: 'Dr. System'
+  });
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedFiles(files);
+  };
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error('Please select at least one file');
+      return;
+    }
+
+    setUploading(true);
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const file of selectedFiles) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('study_id', uploadData.study_id);
+        formData.append('series_id', uploadData.series_id);
+        formData.append('modality', uploadData.modality);
+        formData.append('body_part', uploadData.body_part);
+        formData.append('study_date', uploadData.study_date);
+        formData.append('study_time', uploadData.study_time);
+        formData.append('institution_name', uploadData.institution_name);
+        formData.append('referring_physician', uploadData.referring_physician);
+
+        console.log('QuickUpload: Uploading file:', file.name, 'to patient:', patient.id);
+        console.log('QuickUpload: Upload data:', {
+          modality: uploadData.modality,
+          body_part: uploadData.body_part,
+          study_id: uploadData.study_id,
+          series_id: uploadData.series_id,
+          study_date: uploadData.study_date,
+          study_time: uploadData.study_time,
+          institution_name: uploadData.institution_name,
+          referring_physician: uploadData.referring_physician
+        });
+        console.log('QuickUpload: File will be processed by backend image conversion algorithm');
+        
+        const token = localStorage.getItem('token');
+        const headers = {
+          'Content-Type': 'multipart/form-data'
+        };
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await axios.post(`${getApiUrl()}/patients/${patient.id}/images`, formData, {
+          headers
+        });
+        
+        console.log('QuickUpload: Backend processed file successfully:', response.data);
+        toast.success(`${file.name} uploaded successfully`);
+        successCount++;
+      } catch (error) {
+        console.error('QuickUpload error for file:', file.name, error);
+        console.error('QuickUpload error response:', error.response?.data);
+        
+        let errorMessage = 'Unknown error';
+        if (error.response?.data?.detail) {
+          if (Array.isArray(error.response.data.detail)) {
+            // Handle validation error array
+            errorMessage = error.response.data.detail.map(err => 
+              `${err.loc?.join('.')} ${err.msg}`
+            ).join(', ');
+          } else {
+            errorMessage = error.response.data.detail;
+          }
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Authentication failed. Please login again.';
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Patient not found';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+        failureCount++;
+      }
+    }
+    
+    setUploading(false);
+    
+    // Provide comprehensive feedback
+    if (successCount > 0 && failureCount === 0) {
+      toast.success(`All ${successCount} image(s) uploaded successfully!`);
+    } else if (successCount > 0 && failureCount > 0) {
+      toast.warning(`${successCount} image(s) uploaded, ${failureCount} failed`);
+    } else if (failureCount > 0) {
+      toast.error(`All ${failureCount} image(s) failed to upload`);
+    }
+    
+    // Close modal and refresh data if any uploads succeeded
+    if (successCount > 0) {
+      onComplete();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
+        <div className="p-6 border-b">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">
+              Quick Upload for {patient.first_name} {patient.last_name}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            Patient ID: {patient.patient_id}
+          </p>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          {/* File Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Medical Images
+            </label>
+            <input
+              type="file"
+              multiple
+              accept=".dcm,.jpg,.jpeg,.png,.tiff,.tif"
+              onChange={handleFileSelect}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Supported formats: DICOM (.dcm), JPEG, PNG, TIFF
+            </p>
+          </div>
+
+          {/* Quick Settings */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Modality
+              </label>
+              <select
+                value={uploadData.modality}
+                onChange={(e) => setUploadData({...uploadData, modality: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="CT">CT</option>
+                <option value="MRI">MRI</option>
+                <option value="X-Ray">X-Ray</option>
+                <option value="Ultrasound">Ultrasound</option>
+                <option value="PET">PET</option>
+                <option value="Mammography">Mammography</option>
+                <option value="Nuclear Medicine">Nuclear Medicine</option>
+                <option value="MR">MR</option>
+                <option value="XR">XR</option>
+                <option value="US">US</option>
+                <option value="CR">CR</option>
+                <option value="DR">DR</option>
+                <option value="DX">DX</option>
+                <option value="RF">RF</option>
+                <option value="NM">NM</option>
+                <option value="PT">PT</option>
+                <option value="SC">SC</option>
+                <option value="OT">OT</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Body Part
+              </label>
+              <select
+                value={uploadData.body_part}
+                onChange={(e) => setUploadData({...uploadData, body_part: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="CHEST">Chest</option>
+                <option value="ABDOMEN">Abdomen</option>
+                <option value="HEAD">Head</option>
+                <option value="PELVIS">Pelvis</option>
+                <option value="SPINE">Spine</option>
+                <option value="EXTREMITY">Extremity</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Selected Files Preview */}
+          {selectedFiles.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                Selected Files ({selectedFiles.length}):
+              </p>
+              <div className="max-h-32 overflow-y-auto bg-gray-50 rounded-lg p-2">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="text-xs text-gray-600 py-1">
+                    {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex justify-end space-x-3 p-6 border-t">
+          <button
+            onClick={onClose}
+            disabled={uploading}
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={uploading || selectedFiles.length === 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+          >
+            {uploading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>Upload Images</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -816,7 +1321,7 @@ const ImageUpload = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get(`${API}/patients`);
+      const response = await axios.post(`${getApiUrl()}/patients`, newPatient);
       setPatients(response.data);
     } catch (error) {
       toast.error('Failed to fetch patients');
@@ -1136,6 +1641,49 @@ const ImageUpload = () => {
 
 // Medical Image Viewer Component
 const MedicalImageViewer = () => {
+  // Save Annotated Image
+  const handleSaveAnnotatedImage = () => {
+    const mainCanvas = canvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+    
+    if (!mainCanvas || !overlayCanvas || !selectedImage) {
+      toast.error('No image selected or canvas not available');
+      return;
+    }
+
+    // Create a temporary canvas to combine the main image and annotations
+    const combinedCanvas = document.createElement('canvas');
+    const combinedCtx = combinedCanvas.getContext('2d');
+    
+    // Set the combined canvas size to match the main canvas
+    combinedCanvas.width = mainCanvas.width;
+    combinedCanvas.height = mainCanvas.height;
+    
+    // Draw the main image first
+    combinedCtx.drawImage(mainCanvas, 0, 0);
+    
+    // Draw the annotations on top
+    combinedCtx.drawImage(overlayCanvas, 0, 0);
+    
+    // Convert to blob and trigger download
+    combinedCanvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Create a more descriptive filename
+      const patient = patients.find(p => p.id === selectedPatient);
+      const patientName = patient ? `${patient.first_name}_${patient.last_name}` : 'Unknown';
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `${patientName}_${selectedImage.modality}_${selectedImage.body_part}_${timestamp}.png`;
+      
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success('Annotated image saved successfully!');
+    }, 'image/png');
+  };
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState('');
   const [patientImages, setPatientImages] = useState([]);
@@ -1154,6 +1702,14 @@ const MedicalImageViewer = () => {
     boneRemoval: 0,
     fleshRemoval: 0
   });
+  
+  // Performance optimization states
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const processingCacheRef = useRef(new Map());
+  const workerRef = useRef(null);
+  const processingQueueRef = useRef([]);
+  const processingIdRef = useRef(0);
   const [annotationState, setAnnotationState] = useState({
     tool: 'none', // 'line', 'rectangle', 'arrow', 'circle', 'text', 'ruler', 'angle', 'roi'
     isDrawing: false,
@@ -1211,6 +1767,67 @@ const MedicalImageViewer = () => {
     };
   }, [selectedPatient]);
 
+  // Initialize Web Worker for image processing
+  useEffect(() => {
+    console.log('Initializing Web Worker for image processing...');
+    if (typeof Worker !== 'undefined') {
+      try {
+        workerRef.current = new Worker('/imageProcessingWorker.js');
+        console.log('Web Worker created successfully');
+        
+        workerRef.current.onmessage = (e) => {
+          const { type, processingId, result, error } = e.data;
+          console.log('Worker message received:', { type, processingId, hasResult: !!result, error });
+          
+          if (type === 'processingComplete') {
+            const queueIndex = processingQueueRef.current.findIndex(item => item.id === processingId);
+            if (queueIndex !== -1) {
+              const { resolve, cacheKey } = processingQueueRef.current[queueIndex];
+              processingQueueRef.current.splice(queueIndex, 1);
+              
+              // Cache the result
+              processingCacheRef.current.set(cacheKey, result);
+              
+              resolve(result);
+              
+              // Update processing state
+              setIsProcessing(processingQueueRef.current.length > 0);
+              setProcessingProgress(0);
+              console.log('Processing completed successfully for ID:', processingId);
+            }
+          } else if (type === 'processingError') {
+            const queueIndex = processingQueueRef.current.findIndex(item => item.id === processingId);
+            if (queueIndex !== -1) {
+              const { reject } = processingQueueRef.current[queueIndex];
+              processingQueueRef.current.splice(queueIndex, 1);
+              
+              reject(new Error(error));
+              
+              setIsProcessing(processingQueueRef.current.length > 0);
+              setProcessingProgress(0);
+              console.error('Processing failed for ID:', processingId, 'Error:', error);
+            }
+          }
+        };
+        
+        workerRef.current.onerror = (error) => {
+          console.error('Worker error:', error);
+        };
+      } catch (error) {
+        console.error('Failed to create Web Worker:', error);
+      }
+    } else {
+      console.error('Web Workers not supported in this environment');
+    }
+    
+    return () => {
+      if (workerRef.current) {
+        console.log('Terminating Web Worker');
+        workerRef.current.terminate();
+      }
+    };
+  }, []);
+  
   useEffect(() => {
     fetchPatients();
   }, []);
@@ -1235,7 +1852,7 @@ const MedicalImageViewer = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.get(`${API}/patients`);
+      const response = await axios.get(`${getApiUrl()}/patients`);
       setPatients(response.data);
     } catch (error) {
       toast.error('Failed to fetch patients');
@@ -1244,13 +1861,67 @@ const MedicalImageViewer = () => {
 
   const fetchPatientImages = async () => {
     try {
-      const response = await axios.get(`${API}/patients/${selectedPatient}/images`);
+      const response = await axios.get(`${getApiUrl()}/patients/${selectedPatient}/images`);
       setPatientImages(response.data);
     } catch (error) {
       toast.error('Failed to fetch patient images');
     }
   };
 
+  // Optimized image processing function with Web Worker
+  const processImageWithWorker = async (type, imageData, params) => {
+    if (!workerRef.current) {
+      throw new Error('Web Worker not available');
+    }
+    
+    // Generate cache key
+    const cacheKey = `${type}-${JSON.stringify(params)}-${selectedImage?.id}`;
+    
+    // Check cache first
+    if (processingCacheRef.current.has(cacheKey)) {
+      return processingCacheRef.current.get(cacheKey);
+    }
+    
+    return new Promise((resolve, reject) => {
+      const processingId = processingIdRef.current++;
+      
+      // Add to processing queue
+      processingQueueRef.current.push({
+        id: processingId,
+        resolve,
+        reject,
+        cacheKey
+      });
+      
+      // Update processing state
+      setIsProcessing(true);
+      setProcessingProgress(25);
+      
+      // Send to worker
+      workerRef.current.postMessage({
+        type,
+        imageData: {
+          data: imageData.data,
+          width: imageData.width,
+          height: imageData.height
+        },
+        params,
+        processingId
+      });
+      
+      // Set timeout for long-running operations
+      setTimeout(() => {
+        const queueIndex = processingQueueRef.current.findIndex(item => item.id === processingId);
+        if (queueIndex !== -1) {
+          processingQueueRef.current.splice(queueIndex, 1);
+          setIsProcessing(false);
+          setProcessingProgress(0);
+          reject(new Error('Processing timeout'));
+        }
+      }, 10000); // 10 second timeout
+    });
+  };
+  
   // Advanced image processing functions
   const applyGaussianFilter = (imageData, sigma) => {
     const data = imageData.data;
@@ -1648,31 +2319,97 @@ const MedicalImageViewer = () => {
       // Draw image
       ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
       
-      // Apply advanced image processing if needed
+      // Apply advanced image processing if needed (using Web Worker)
       if (viewerState.noiseThreshold > 0 || viewerState.boneRemoval > 0 || viewerState.fleshRemoval > 0) {
+        console.log('Advanced processing triggered:', {
+          noiseThreshold: viewerState.noiseThreshold,
+          boneRemoval: viewerState.boneRemoval,
+          fleshRemoval: viewerState.fleshRemoval
+        });
+        
         try {
           const imageData = ctx.getImageData(drawX, drawY, drawWidth, drawHeight);
+          console.log('Image data extracted:', imageData.width, 'x', imageData.height);
           
-          if (viewerState.noiseThreshold > 0) {
-            applyNoiseReduction(imageData, viewerState.noiseThreshold);
-          }
+          // Process with Web Worker for better performance
+          const processImage = async () => {
+            let processedData = imageData;
+            
+            if (viewerState.noiseThreshold > 0) {
+              console.log('Starting noise reduction with threshold:', viewerState.noiseThreshold);
+              processedData = await processImageWithWorker('noiseReduction', processedData, {
+                threshold: viewerState.noiseThreshold
+              });
+              console.log('Noise reduction completed');
+            }
+            
+            if (viewerState.boneRemoval > 0) {
+              console.log('Starting bone removal with intensity:', viewerState.boneRemoval);
+              processedData = await processImageWithWorker('boneRemoval', processedData, {
+                intensity: viewerState.boneRemoval
+              });
+              console.log('Bone removal completed');
+            }
+            
+            if (viewerState.fleshRemoval > 0) {
+              console.log('Starting flesh removal with intensity:', viewerState.fleshRemoval);
+              processedData = await processImageWithWorker('fleshRemoval', processedData, {
+                intensity: viewerState.fleshRemoval
+              });
+              console.log('Flesh removal completed');
+            }
+            
+            // Apply processed data back to canvas
+            console.log('Applying processed data back to canvas');
+            
+            // Create a temporary canvas to apply the processed image data
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = processedData.width;
+            tempCanvas.height = processedData.height;
+            
+            // Reconstruct ImageData object if needed
+            let finalImageData;
+            if (processedData.data && processedData.width && processedData.height) {
+              finalImageData = new ImageData(
+                new Uint8ClampedArray(processedData.data),
+                processedData.width,
+                processedData.height
+              );
+            } else {
+              finalImageData = processedData;
+            }
+            
+            // Put the processed data on the temporary canvas
+            tempCtx.putImageData(finalImageData, 0, 0);
+            
+            // Clear the area where the original image was drawn
+            ctx.clearRect(drawX, drawY, drawWidth, drawHeight);
+            
+            // Draw the processed image back with the same dimensions
+            ctx.drawImage(tempCanvas, 0, 0, tempCanvas.width, tempCanvas.height, drawX, drawY, drawWidth, drawHeight);
+            
+            console.log('Advanced processing pipeline completed successfully');
+            
+            // Restore context state after processing is complete
+            ctx.restore();
+          };
           
-          if (viewerState.boneRemoval > 0) {
-            applyAdvancedBoneRemoval(imageData, viewerState.boneRemoval);
-          }
+          processImage().catch(error => {
+            console.error('Advanced processing failed:', error.message, error.stack);
+            // Restore context even if processing fails
+            ctx.restore();
+          });
           
-          if (viewerState.fleshRemoval > 0) {
-            applyAdvancedFleshRemoval(imageData, viewerState.fleshRemoval);
-          }
-          
-          ctx.putImageData(imageData, drawX, drawY);
         } catch (error) {
-          console.log('Advanced processing not applied due to canvas restrictions');
+          console.error('Advanced processing not applied due to canvas restrictions:', error.message);
+          // Restore context if processing setup fails
+          ctx.restore();
         }
+      } else {
+        // Restore context state when no processing is needed
+        ctx.restore();
       }
-      
-      // Restore context state
-      ctx.restore();
     };
     
     img.onerror = () => {
@@ -1684,10 +2421,117 @@ const MedicalImageViewer = () => {
       ctx.font = '16px Arial';
       ctx.textAlign = 'center';
       ctx.fillText('Failed to load image', canvas.width / 2, canvas.height / 2);
+      
+      // Show more detailed error for DICOM images
+      if (selectedImage.image_format === 'DICOM') {
+        ctx.fillStyle = '#ff6b6b';
+        ctx.font = '14px Arial';
+        ctx.fillText('DICOM image processing error', canvas.width / 2, canvas.height / 2 + 30);
+        ctx.fillText('Check console for details', canvas.width / 2, canvas.height / 2 + 50);
+      }
     };
     
-    // Set the image source
-    img.src = `data:image/png;base64,${selectedImage.image_data}`;
+    // Set the image source using optimized endpoint selection
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Choose endpoint based on backend type (local vs Vercel)
+      const isLocalBackend = getBackendUrl().includes('localhost');
+      const endpoint = isLocalBackend ? '/data' : '/data-base64';
+      const imageUrl = `${getApiUrl()}/images/${selectedImage.id}${endpoint}`;
+      
+      console.log('Fetching image from:', imageUrl, '(backend:', isLocalBackend ? 'local' : 'vercel', ')');
+      console.log('With token:', token.substring(0, 20) + '...');
+      
+      fetch(imageUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        console.log('Image fetch response:', response.status, response.statusText);
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            // Base64 endpoint returns JSON
+            return response.json();
+          } else {
+            // Binary endpoint returns blob
+            return response.blob();
+          }
+        } else {
+          throw new Error(`Failed to load image: ${response.status} ${response.statusText}`);
+        }
+      })
+      .then(data => {
+        if (data.format === 'base64') {
+          // Handle base64 data from Vercel endpoint
+          console.log('Received base64 data, type:', data.media_type);
+          const dataUrl = `data:${data.media_type};base64,${data.image_data}`;
+          img.src = dataUrl;
+          
+          const originalOnload = img.onload;
+          img.onload = () => {
+            console.log('Image loaded successfully from base64');
+            if (originalOnload) originalOnload();
+          };
+        } else if (data instanceof Blob) {
+          // Handle blob data from local endpoint
+          console.log('Received blob:', data.size, 'bytes, type:', data.type);
+          const url = URL.createObjectURL(data);
+          img.src = url;
+          
+          const originalOnload = img.onload;
+          img.onload = () => {
+            console.log('Image loaded successfully from blob');
+            if (originalOnload) originalOnload();
+            URL.revokeObjectURL(url);
+          };
+        } else {
+          console.error('Unexpected data format:', data);
+          throw new Error('Unexpected response format');
+        }
+      })
+      .catch(error => {
+        console.error('Error loading image:', error);
+        
+        // Fallback: try the binary endpoint
+        console.log('Attempting fallback to binary endpoint...');
+        const fallbackUrl = `${getApiUrl()}/images/${selectedImage.id}/data`;
+        
+        fetch(fallbackUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.blob();
+          } else {
+            throw new Error('Fallback also failed');
+          }
+        })
+        .then(blob => {
+          console.log('Fallback successful - received blob:', blob.size, 'bytes');
+          const url = URL.createObjectURL(blob);
+          img.src = url;
+          
+          const originalOnload = img.onload;
+          img.onload = () => {
+            console.log('Image loaded successfully from fallback');
+            if (originalOnload) originalOnload();
+            URL.revokeObjectURL(url);
+          };
+        })
+        .catch(fallbackError => {
+          console.error('Both endpoints failed:', fallbackError);
+          img.onerror();
+        });
+      });
+    } else {
+      // No token available - show error message
+      console.error('No authentication token available');
+      img.onerror();
+    }
   };
 
   const drawAnnotations = () => {
@@ -2090,6 +2934,42 @@ const MedicalImageViewer = () => {
     }));
   };
 
+  const handleDownload = async () => {
+    if (!selectedImage) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${getApiUrl()}/images/${selectedImage.id}/data`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        
+        // Create a temporary download link
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = selectedImage.original_filename || `${selectedImage.modality}_${selectedImage.body_part}.dcm`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL
+        URL.revokeObjectURL(url);
+        
+        toast.success('Image downloaded successfully!');
+      } else {
+        throw new Error('Failed to download image');
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      toast.error('Failed to download image');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -2184,9 +3064,9 @@ const MedicalImageViewer = () => {
                     }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <img
-                        src={`data:image/png;base64,${image.thumbnail_data}`}
-                        alt="Thumbnail"
+                      <ThumbnailImage 
+                        imageId={image.id}
+                        thumbnailData={image.thumbnail_data}
                         className="w-12 h-12 object-cover rounded"
                       />
                       <div className="flex-1 min-w-0">
@@ -2325,6 +3205,13 @@ const MedicalImageViewer = () => {
                       >
                         <Maximize className="w-4 h-4" />
                       </button>
+                      <button
+                        onClick={handleDownload}
+                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                        title="Download Image"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2428,7 +3315,15 @@ const MedicalImageViewer = () => {
 
                   {/* Advanced Image Processing Controls */}
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Advanced Medical Image Processing</h4>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-700">Advanced Medical Image Processing</h4>
+                      {isProcessing && (
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <span className="text-xs text-blue-600">Processing...</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -2442,6 +3337,7 @@ const MedicalImageViewer = () => {
                           value={viewerState.noiseThreshold}
                           onChange={(e) => setViewerState(prev => ({...prev, noiseThreshold: parseFloat(e.target.value)}))}
                           className="w-full"
+                          disabled={isProcessing}
                         />
                         <p className="text-xs text-gray-500 mt-1">Bilateral filtering with edge preservation & Gaussian smoothing</p>
                       </div>
@@ -2458,6 +3354,7 @@ const MedicalImageViewer = () => {
                           value={viewerState.boneRemoval}
                           onChange={(e) => setViewerState(prev => ({...prev, boneRemoval: parseFloat(e.target.value)}))}
                           className="w-full"
+                          disabled={isProcessing}
                         />
                         <p className="text-xs text-gray-500 mt-1">Adaptive thresholding with local statistics & morphological operations</p>
                       </div>
@@ -2474,6 +3371,7 @@ const MedicalImageViewer = () => {
                           value={viewerState.fleshRemoval}
                           onChange={(e) => setViewerState(prev => ({...prev, fleshRemoval: parseFloat(e.target.value)}))}
                           className="w-full"
+                          disabled={isProcessing}
                         />
                         <p className="text-xs text-gray-500 mt-1">Otsu thresholding with edge preservation & contrast enhancement</p>
                       </div>
@@ -2518,6 +3416,17 @@ const MedicalImageViewer = () => {
                       </div>
                     </div>
                   )}
+                </div>
+
+{/* Save Annotated Image */}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={handleSaveAnnotatedImage}
+                    className="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition flex items-center space-x-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Save Annotated Image</span>
+                  </button>
                 </div>
 
                 {/* Mouse Position Display */}

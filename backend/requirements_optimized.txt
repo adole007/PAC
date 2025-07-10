@@ -1,0 +1,29 @@
+# Core FastAPI and web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database (Supabase PostgreSQL)
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+
+# Authentication and security
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+
+# Image processing
+Pillow==10.1.0
+pydicom==2.4.3
+numpy==1.24.4
+
+# Async file operations
+aiofiles==23.2.1
+
+# Redis (optional - will use memory cache if not available)
+aioredis==2.0.1
+
+# Data validation
+pydantic[email]==2.5.0
+
+# Additional utilities
+python-dateutil==2.8.2
