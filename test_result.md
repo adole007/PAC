@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Build a PAC system which contains the image viewer section used by the clinician and the patient interface where the patient details can be edited and medical images can be stored per patient."
+user_problem_statement: "Build a PAC system which contains the image viewer section used by the clinician and the patient interface where the patient details can be edited and medical images can be stored per patient. Can you add a patient examination view, which shows all the patient examinations (i.e any medical image scanning that the patient has done with a section in it that contains the reports for each examination), Also in the patient examination section, show the device that was used the capture the medical image for that examination done on the patient. And when a patient's name is clicked, a window pops up that shows all the examination scans the patient has done, and when the clinician clicks on an examination, he can view the particular examination and the image captured during the examination"
 
 backend:
   - task: "User Authentication System"
