@@ -40,6 +40,13 @@ from pillow_heif import register_heif_opener
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Register HEIF opener for modern image formats (with error handling)
 try:
     register_heif_opener()
