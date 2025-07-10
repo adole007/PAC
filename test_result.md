@@ -299,14 +299,9 @@ metadata:
   run_ui: true
 
 test_plan:
-  current_focus:
-    - "User Authentication System"
-    - "Patient Management CRUD"
-    - "DICOM Image Processing"
-    - "Medical Image Upload API"
-    - "Advanced Medical Image Viewer"
+  current_focus: []
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
