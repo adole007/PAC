@@ -342,6 +342,7 @@ const DashboardLayout = ({ children }) => {
 
   const navigation = [
     { id: 'patients', label: 'Patients', icon: Users },
+    { id: 'examinations', label: 'Examinations', icon: ImageIcon },
     { id: 'viewer', label: 'Image Viewer', icon: Eye },
     { id: 'upload', label: 'Upload Images', icon: Upload },
     ...(user?.role === 'admin' ? [{ id: 'settings', label: 'Settings', icon: Settings }] : [])
