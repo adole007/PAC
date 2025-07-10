@@ -10,19 +10,8 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Get backend URL from frontend .env file
-def get_backend_url():
-    env_path = Path('/app/frontend/.env')
-    if env_path.exists():
-        with open(env_path, 'r') as f:
-            for line in f:
-                if line.startswith('REACT_APP_BACKEND_URL='):
-                    return line.strip().split('=')[1].strip('"\'') + '/api'
-    return None
-
-BACKEND_URL = get_backend_url()
-if not BACKEND_URL:
-    raise ValueError("Backend URL not found in frontend/.env")
+# Use local backend URL for testing since external URL has routing issues
+BACKEND_URL = "http://localhost:8001/api"
 
 logger.info(f"Using backend URL: {BACKEND_URL}")
 
