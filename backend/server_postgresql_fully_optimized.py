@@ -20,7 +20,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import aiofiles
-import aioredis
+# import aioredis  # Commented out due to Python 3.11 compatibility issues
 from contextlib import asynccontextmanager
 
 # Database imports
