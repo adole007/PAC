@@ -129,13 +129,6 @@ cache_expiry = {}
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 # ==================== DATABASE CONNECTION POOL ====================
 
 def create_db_pool():
