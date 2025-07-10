@@ -79,7 +79,7 @@ const initializeBackend = async () => {
   console.log('🔧 Checking for local backend...');
   const isLocalRunning = await checkLocalBackend();
   if (isLocalRunning) {
-    BACKEND_URL = 'http://localhost:8000';
+    BACKEND_URL = 'http://localhost:8001';
     console.log('🔧 ✅ Switched to LOCAL backend:', BACKEND_URL);
   } else {
     console.log('🌐 ➡️ Using PRODUCTION backend:', BACKEND_URL);
