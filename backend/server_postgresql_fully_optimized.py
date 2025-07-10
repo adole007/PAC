@@ -1341,6 +1341,273 @@ async def delete_medical_image(image_id: str, current_user: User = Depends(get_c
     finally:
         return_db_connection(conn)
 
+# ==================== EXAMINATION MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/devices", response_model=Device)
+async def create_device(device_data: DeviceCreate, current_user: User = Depends(get_current_user)):
+    """Create a new medical device"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Create device
+        device_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO devices (id, name, model, manufacturer, device_type, serial_number, 
+                               installation_date, last_calibration, status, location, specifications, 
+                               created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            device_id, device_data.name, device_data.model, device_data.manufacturer,
+            device_data.device_type, device_data.serial_number, device_data.installation_date,
+            device_data.last_calibration, device_data.status, device_data.location,
+            json.dumps(device_data.specifications), datetime.utcnow(), datetime.utcnow()
+        ))
+        
+        # Get the created device
+        cursor.execute("SELECT * FROM devices WHERE id = %s", (device_id,))
+        device_record = cursor.fetchone()
+        
+        conn.commit()
+        
+        device = Device(**dict(device_record))
+        logger.info(f"Device created: {device.name} by user {current_user.id}")
+        
+        return device
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/devices", response_model=List[Device])
+async def get_devices(current_user: User = Depends(get_current_user)):
+    """Get all medical devices"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM devices ORDER BY name")
+        devices = cursor.fetchall()
+        
+        return [Device(**dict(device)) for device in devices]
+    finally:
+        return_db_connection(conn)
+
+@api_router.post("/examinations", response_model=Examination)
+async def create_examination(examination_data: ExaminationCreate, current_user: User = Depends(get_current_user)):
+    """Create a new examination"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Get device name for quick access
+        cursor.execute("SELECT name FROM devices WHERE id = %s", (examination_data.device_id,))
+        device_record = cursor.fetchone()
+        if not device_record:
+            raise HTTPException(status_code=404, detail="Device not found")
+        device_name = device_record['name']
+        
+        # Create examination
+        examination_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO examinations (id, patient_id, examination_type, examination_date, 
+                                    examination_time, device_id, device_name, referring_physician, 
+                                    performing_physician, body_part_examined, clinical_indication,
+                                    examination_protocol, contrast_agent, contrast_amount, 
+                                    patient_position, radiation_dose, priority, created_at, 
+                                    updated_at, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            examination_id, examination_data.patient_id, examination_data.examination_type,
+            examination_data.examination_date, examination_data.examination_time,
+            examination_data.device_id, device_name, examination_data.referring_physician,
+            examination_data.performing_physician, examination_data.body_part_examined,
+            examination_data.clinical_indication, examination_data.examination_protocol,
+            examination_data.contrast_agent, examination_data.contrast_amount,
+            examination_data.patient_position, examination_data.radiation_dose,
+            examination_data.priority, datetime.utcnow(), datetime.utcnow(), current_user.id
+        ))
+        
+        # Get the created examination
+        cursor.execute("SELECT * FROM examinations WHERE id = %s", (examination_id,))
+        examination_record = cursor.fetchone()
+        
+        conn.commit()
+        
+        examination = Examination(**dict(examination_record))
+        logger.info(f"Examination created: {examination.examination_type} for patient {examination.patient_id}")
+        
+        return examination
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/patients/{patient_id}/examinations", response_model=List[ExaminationWithDetails])
+async def get_patient_examinations(patient_id: str, current_user: User = Depends(get_current_user)):
+    """Get all examinations for a specific patient"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Get examinations with device details and counts
+        cursor.execute("""
+            SELECT e.*, d.model as device_model, d.manufacturer as device_manufacturer,
+                   d.device_type, d.location as device_location,
+                   COALESCE(img_count.count, 0) as image_count,
+                   COALESCE(report_count.count, 0) as report_count,
+                   CASE WHEN report_count.count > 0 THEN true ELSE false END as has_reports
+            FROM examinations e
+            LEFT JOIN devices d ON e.device_id = d.id
+            LEFT JOIN (
+                SELECT study_id, COUNT(*) as count 
+                FROM medical_images 
+                WHERE patient_id = %s 
+                GROUP BY study_id
+            ) img_count ON e.id = img_count.study_id
+            LEFT JOIN (
+                SELECT examination_id, COUNT(*) as count 
+                FROM examination_reports 
+                GROUP BY examination_id
+            ) report_count ON e.id = report_count.examination_id
+            WHERE e.patient_id = %s
+            ORDER BY e.examination_date DESC, e.examination_time DESC
+        """, (patient_id, patient_id))
+        
+        examinations = cursor.fetchall()
+        
+        # Log access
+        access_log = {
+            "action": "view_patient_examinations",
+            "user_id": current_user.id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "patient_id": patient_id
+        }
+        
+        return [ExaminationWithDetails(**dict(exam)) for exam in examinations]
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/examinations/{examination_id}", response_model=Examination)
+async def get_examination(examination_id: str, current_user: User = Depends(get_current_user)):
+    """Get specific examination details"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM examinations WHERE id = %s", (examination_id,))
+        examination_record = cursor.fetchone()
+        
+        if not examination_record:
+            raise HTTPException(status_code=404, detail="Examination not found")
+        
+        examination = Examination(**dict(examination_record))
+        
+        # Log access
+        access_log = {
+            "action": "view_examination",
+            "user_id": current_user.id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "examination_id": examination_id
+        }
+        
+        return examination
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/examinations/{examination_id}/images", response_model=List[MedicalImageThumbnail])
+async def get_examination_images(examination_id: str, current_user: User = Depends(get_current_user)):
+    """Get all images for a specific examination"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Get images for this examination (using study_id as examination_id)
+        cursor.execute("""
+            SELECT id, patient_id, study_id, modality, body_part, 
+                   study_date, original_filename, uploaded_at
+            FROM medical_images 
+            WHERE study_id = %s 
+            ORDER BY uploaded_at DESC
+        """, (examination_id,))
+        
+        images = cursor.fetchall()
+        
+        # Log access
+        access_log = {
+            "action": "view_examination_images",
+            "user_id": current_user.id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "examination_id": examination_id
+        }
+        
+        return [MedicalImageThumbnail(**dict(img)) for img in images]
+    finally:
+        return_db_connection(conn)
+
+@api_router.post("/examinations/{examination_id}/reports", response_model=ExaminationReport)
+async def create_examination_report(examination_id: str, report_data: ExaminationReportCreate, current_user: User = Depends(get_current_user)):
+    """Create a report for an examination"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Verify examination exists
+        cursor.execute("SELECT id FROM examinations WHERE id = %s", (examination_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Examination not found")
+        
+        # Create report
+        report_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO examination_reports (id, examination_id, report_type, report_status, 
+                                           findings, impression, recommendations, report_date, 
+                                           report_time, reporting_physician, dictated_by, 
+                                           transcribed_by, technical_quality, limitations, 
+                                           comparison_studies, created_at, updated_at, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            report_id, examination_id, report_data.report_type, "draft",
+            report_data.findings, report_data.impression, report_data.recommendations,
+            report_data.report_date, report_data.report_time, report_data.reporting_physician,
+            report_data.dictated_by, report_data.transcribed_by, report_data.technical_quality,
+            report_data.limitations, report_data.comparison_studies, datetime.utcnow(),
+            datetime.utcnow(), current_user.id
+        ))
+        
+        # Get the created report
+        cursor.execute("SELECT * FROM examination_reports WHERE id = %s", (report_id,))
+        report_record = cursor.fetchone()
+        
+        conn.commit()
+        
+        report = ExaminationReport(**dict(report_record))
+        logger.info(f"Report created for examination {examination_id} by user {current_user.id}")
+        
+        return report
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/examinations/{examination_id}/reports", response_model=List[ExaminationReport])
+async def get_examination_reports(examination_id: str, current_user: User = Depends(get_current_user)):
+    """Get all reports for an examination"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("""
+            SELECT * FROM examination_reports 
+            WHERE examination_id = %s 
+            ORDER BY created_at DESC
+        """, (examination_id,))
+        
+        reports = cursor.fetchall()
+        
+        # Log access
+        access_log = {
+            "action": "view_examination_reports",
+            "user_id": current_user.id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "examination_id": examination_id
+        }
+        
+        return [ExaminationReport(**dict(report)) for report in reports]
+    finally:
+        return_db_connection(conn)
+
 # ==================== BACKGROUND TASKS ====================
 
 async def log_image_upload(image_id: str, user_id: str):
