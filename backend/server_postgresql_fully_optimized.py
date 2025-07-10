@@ -1646,6 +1646,22 @@ async def get_examination_reports(examination_id: str, current_user: User = Depe
         
         reports = cursor.fetchall()
         
+        # Convert date/time fields to strings for Pydantic validation
+        result = []
+        for report in reports:
+            report_dict = dict(report)
+            if report_dict.get('report_date'):
+                report_dict['report_date'] = str(report_dict['report_date'])
+            if report_dict.get('report_time'):
+                report_dict['report_time'] = str(report_dict['report_time'])
+            if report_dict.get('created_at'):
+                report_dict['created_at'] = report_dict['created_at'].isoformat() if hasattr(report_dict['created_at'], 'isoformat') else str(report_dict['created_at'])
+            if report_dict.get('updated_at'):
+                report_dict['updated_at'] = report_dict['updated_at'].isoformat() if hasattr(report_dict['updated_at'], 'isoformat') else str(report_dict['updated_at'])
+            if report_dict.get('signed_at') and report_dict['signed_at']:
+                report_dict['signed_at'] = report_dict['signed_at'].isoformat() if hasattr(report_dict['signed_at'], 'isoformat') else str(report_dict['signed_at'])
+            result.append(ExaminationReport(**report_dict))
+        
         # Log access
         access_log = {
             "action": "view_examination_reports",
@@ -1654,7 +1670,7 @@ async def get_examination_reports(examination_id: str, current_user: User = Depe
             "examination_id": examination_id
         }
         
-        return [ExaminationReport(**dict(report)) for report in reports]
+        return result
     finally:
         return_db_connection(conn)
 
