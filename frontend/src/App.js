@@ -3883,6 +3883,8 @@ const Dashboard = ({ activeTab }) => {
     switch (activeTab) {
       case 'patients':
         return <PatientManagement />;
+      case 'examinations':
+        return <PatientExaminationView />;
       case 'viewer':
         return <MedicalImageViewer />;
       case 'upload':
