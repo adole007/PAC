@@ -1472,6 +1472,20 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
         
         examinations = cursor.fetchall()
         
+        # Convert date/time fields to strings for Pydantic validation
+        result = []
+        for exam in examinations:
+            exam_dict = dict(exam)
+            if exam_dict.get('examination_date'):
+                exam_dict['examination_date'] = str(exam_dict['examination_date'])
+            if exam_dict.get('examination_time'):
+                exam_dict['examination_time'] = str(exam_dict['examination_time'])
+            if exam_dict.get('created_at'):
+                exam_dict['created_at'] = exam_dict['created_at'].isoformat() if hasattr(exam_dict['created_at'], 'isoformat') else str(exam_dict['created_at'])
+            if exam_dict.get('updated_at'):
+                exam_dict['updated_at'] = exam_dict['updated_at'].isoformat() if hasattr(exam_dict['updated_at'], 'isoformat') else str(exam_dict['updated_at'])
+            result.append(ExaminationWithDetails(**exam_dict))
+        
         # Log access
         access_log = {
             "action": "view_patient_examinations",
@@ -1480,7 +1494,7 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
             "patient_id": patient_id
         }
         
-        return [ExaminationWithDetails(**dict(exam)) for exam in examinations]
+        return result
     finally:
         return_db_connection(conn)
 
