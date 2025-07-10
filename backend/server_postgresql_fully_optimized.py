@@ -1612,7 +1612,20 @@ async def create_examination_report(examination_id: str, report_data: Examinatio
         
         conn.commit()
         
-        report = ExaminationReport(**dict(report_record))
+        # Convert date/time fields to strings for Pydantic validation
+        report_dict = dict(report_record)
+        if report_dict.get('report_date'):
+            report_dict['report_date'] = str(report_dict['report_date'])
+        if report_dict.get('report_time'):
+            report_dict['report_time'] = str(report_dict['report_time'])
+        if report_dict.get('created_at'):
+            report_dict['created_at'] = report_dict['created_at'].isoformat() if hasattr(report_dict['created_at'], 'isoformat') else str(report_dict['created_at'])
+        if report_dict.get('updated_at'):
+            report_dict['updated_at'] = report_dict['updated_at'].isoformat() if hasattr(report_dict['updated_at'], 'isoformat') else str(report_dict['updated_at'])
+        if report_dict.get('signed_at') and report_dict['signed_at']:
+            report_dict['signed_at'] = report_dict['signed_at'].isoformat() if hasattr(report_dict['signed_at'], 'isoformat') else str(report_dict['signed_at'])
+        
+        report = ExaminationReport(**report_dict)
         logger.info(f"Report created for examination {examination_id} by user {current_user.id}")
         
         return report
