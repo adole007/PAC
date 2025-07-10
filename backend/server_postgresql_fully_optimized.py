@@ -73,7 +73,7 @@ class Config:
     
     # Redis (with Memory Cache Fallback)
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
-    USE_MEMORY_CACHE = os.environ.get('USE_MEMORY_CACHE', 'true').lower() == 'true'
+    USE_MEMORY_CACHE = True  # Force memory cache due to Python 3.11 compatibility
     CACHE_TTL = 3600  # 1 hour
     
     # File Storage (Serverless Compatible)
