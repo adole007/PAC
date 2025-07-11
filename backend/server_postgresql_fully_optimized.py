@@ -528,7 +528,7 @@ class ExaminationReportCreate(BaseModel):
     comparison_studies: Optional[str] = None
 
 class ExaminationWithDetails(BaseModel):
-    """Examination with associated device info and image count"""
+    """Examination with associated device info, technologist info, and image count"""
     id: str
     patient_id: str
     examination_type: str
@@ -540,6 +540,10 @@ class ExaminationWithDetails(BaseModel):
     device_manufacturer: str
     device_type: str
     device_location: str
+    technologist_id: str
+    technologist_name: str
+    technologist_specialization: str
+    technologist_certification: str
     referring_physician: str
     performing_physician: str
     body_part_examined: str
