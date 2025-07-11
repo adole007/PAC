@@ -1431,6 +1431,77 @@ async def get_devices(current_user: User = Depends(get_current_user)):
     finally:
         return_db_connection(conn)
 
+@api_router.post("/technologists", response_model=Technologist)
+async def create_technologist(technologist_data: TechnologistCreate, current_user: User = Depends(get_current_user)):
+    """Create a new technologist"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Create technologist
+        technologist_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO technologists (id, employee_id, first_name, last_name, email, phone,
+                                     specialization, certification, license_number, hire_date,
+                                     department, shift_schedule, status, supervisor_id,
+                                     created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            technologist_id, technologist_data.employee_id, technologist_data.first_name,
+            technologist_data.last_name, technologist_data.email, technologist_data.phone,
+            technologist_data.specialization, technologist_data.certification,
+            technologist_data.license_number, technologist_data.hire_date,
+            technologist_data.department, technologist_data.shift_schedule,
+            technologist_data.status, technologist_data.supervisor_id,
+            datetime.utcnow(), datetime.utcnow()
+        ))
+        
+        # Get the created technologist
+        cursor.execute("SELECT * FROM technologists WHERE id = %s", (technologist_id,))
+        tech_record = cursor.fetchone()
+        
+        conn.commit()
+        
+        # Convert date fields to strings for Pydantic validation
+        tech_dict = dict(tech_record)
+        if tech_dict.get('hire_date'):
+            tech_dict['hire_date'] = str(tech_dict['hire_date'])
+        if tech_dict.get('created_at'):
+            tech_dict['created_at'] = tech_dict['created_at'].isoformat() if hasattr(tech_dict['created_at'], 'isoformat') else str(tech_dict['created_at'])
+        if tech_dict.get('updated_at'):
+            tech_dict['updated_at'] = tech_dict['updated_at'].isoformat() if hasattr(tech_dict['updated_at'], 'isoformat') else str(tech_dict['updated_at'])
+        
+        technologist = Technologist(**tech_dict)
+        logger.info(f"Technologist created: {technologist.first_name} {technologist.last_name} by user {current_user.id}")
+        
+        return technologist
+    finally:
+        return_db_connection(conn)
+
+@api_router.get("/technologists", response_model=List[Technologist])
+async def get_technologists(current_user: User = Depends(get_current_user)):
+    """Get all technologists"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM technologists ORDER BY first_name, last_name")
+        technologists = cursor.fetchall()
+        
+        result = []
+        for tech in technologists:
+            tech_dict = dict(tech)
+            if tech_dict.get('hire_date'):
+                tech_dict['hire_date'] = str(tech_dict['hire_date'])
+            if tech_dict.get('created_at'):
+                tech_dict['created_at'] = tech_dict['created_at'].isoformat() if hasattr(tech_dict['created_at'], 'isoformat') else str(tech_dict['created_at'])
+            if tech_dict.get('updated_at'):
+                tech_dict['updated_at'] = tech_dict['updated_at'].isoformat() if hasattr(tech_dict['updated_at'], 'isoformat') else str(tech_dict['updated_at'])
+            result.append(Technologist(**tech_dict))
+        
+        return result
+    finally:
+        return_db_connection(conn)
+
 @api_router.post("/examinations", response_model=Examination)
 async def create_examination(examination_data: ExaminationCreate, current_user: User = Depends(get_current_user)):
     """Create a new examination"""
