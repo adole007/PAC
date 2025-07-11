@@ -528,7 +528,16 @@ const PatientExaminationView = () => {
   console.log('🚀 PatientExaminationView component loaded');
   
   const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [examinations, setExaminations] = useState([]);
+  const [selectedExamination, setSelectedExamination] = useState(null);
+  const [examinationImages, setExaminationImages] = useState([]);
+  const [examinationReports, setExaminationReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showExaminationModal, setShowExaminationModal] = useState(false);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   
   useEffect(() => {
     console.log('🔄 useEffect triggered - fetching patients');
@@ -548,10 +557,108 @@ const PatientExaminationView = () => {
       setLoading(false);
     }
   };
-  
-  const handleTestClick = () => {
-    console.log('🎯 TEST CLICK WORKS!');
-    alert('Click handler is working!');
+
+  const fetchPatientExaminations = async (patientId) => {
+    console.log('🔍 fetchPatientExaminations called with patientId:', patientId);
+    try {
+      const token = localStorage.getItem('token');
+      console.log('🔑 Token retrieved:', token ? 'Token exists' : 'No token found');
+      
+      const apiUrl = getApiUrl();
+      console.log('🌐 API URL:', apiUrl);
+      
+      const fullUrl = `${apiUrl}/patients/${patientId}/examinations`;
+      console.log('📡 Full API URL:', fullUrl);
+      
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      console.log('📋 Headers prepared');
+      
+      console.log('🚀 Making API call...');
+      const response = await axios.get(fullUrl, { headers });
+      console.log('✅ API call successful, response:', response.data);
+      
+      setExaminations(response.data);
+      console.log('📊 Examinations set in state');
+    } catch (error) {
+      console.error('❌ Error fetching patient examinations:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      toast.error('Failed to fetch patient examinations');
+    }
+  };
+
+  const fetchExaminationDetails = async (examinationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      // Fetch examination images
+      const imagesResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/images`, { headers });
+      setExaminationImages(imagesResponse.data);
+
+      // Fetch examination reports
+      const reportsResponse = await axios.get(`${getApiUrl()}/examinations/${examinationId}/reports`, { headers });
+      setExaminationReports(reportsResponse.data);
+    } catch (error) {
+      console.error('Error fetching examination details:', error);
+      toast.error('Failed to fetch examination details');
+    }
+  };
+
+  const handlePatientClick = async (patient) => {
+    console.log('👤 handlePatientClick called with patient:', patient);
+    try {
+      setSelectedPatient(patient);
+      console.log('📋 Selected patient set in state');
+      
+      console.log('🔄 Fetching patient examinations...');
+      await fetchPatientExaminations(patient.id);
+      
+      console.log('🎭 Opening examination modal...');
+      setShowExaminationModal(true);
+      console.log('✅ Modal should be open now');
+    } catch (error) {
+      console.error('❌ Error in handlePatientClick:', error);
+      toast.error('Error opening patient examinations');
+    }
+  };
+
+  const handleExaminationClick = async (examination) => {
+    setSelectedExamination(examination);
+    await fetchExaminationDetails(examination.id);
+  };
+
+  const handleImageClick = (image) => {
+    setSelectedImage(image);
+    setShowImageViewer(true);
+  };
+
+  const closeExaminationModal = () => {
+    setShowExaminationModal(false);
+    setSelectedPatient(null);
+    setExaminations([]);
+    setSelectedExamination(null);
+    setExaminationImages([]);
+    setExaminationReports([]);
+  };
+
+  const filteredPatients = patients.filter(patient =>
+    patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.medical_record_number.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatTime = (timeString) => {
+    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
@@ -572,51 +679,332 @@ const PatientExaminationView = () => {
         <p className="text-gray-600 mt-2">Click on a patient to view their examinations and medical imaging history</p>
       </div>
 
-      {/* Test Button */}
+      {/* Search Bar */}
       <div className="mb-6">
-        <button 
-          onClick={handleTestClick}
-          className="bg-red-500 text-white px-4 py-2 rounded"
-        >
-          🧪 TEST CLICK - Click Me!
-        </button>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search patients by name, ID, or medical record number..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
       </div>
 
-      {/* Simplified Patient Cards */}
+      {/* Patients Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {patients.map((patient) => (
+        {filteredPatients.map((patient) => (
           <div
             key={patient.id}
             onClick={(e) => {
               console.log('🎯 PATIENT CARD CLICKED!', patient.first_name, patient.last_name);
               e.preventDefault();
               e.stopPropagation();
-              handleTestClick();
+              handlePatientClick(patient);
             }}
-            style={{
-              backgroundColor: '#ffffff',
-              color: '#000000',
-              border: '3px solid #ff0000',
-              padding: '20px',
-              margin: '10px',
-              cursor: 'pointer',
-              minHeight: '100px'
-            }}
-            onMouseEnter={() => console.log('🖱️ Mouse entered patient card')}
-            onMouseLeave={() => console.log('🖱️ Mouse left patient card')}
+            className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-blue-500 hover:border-blue-600"
           >
-            <h3 style={{fontSize: '18px', fontWeight: 'bold', marginBottom: '10px'}}>
-              {patient.first_name} {patient.last_name}
-            </h3>
-            <p style={{fontSize: '14px', marginBottom: '5px'}}>ID: {patient.patient_id}</p>
-            <p style={{fontSize: '16px', color: '#0066cc', fontWeight: 'bold'}}>Click me!</p>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {patient.first_name} {patient.last_name}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">ID: {patient.patient_id}</p>
+                <p className="text-sm text-gray-600">MRN: {patient.medical_record_number}</p>
+                <p className="text-sm text-gray-600">DOB: {formatDate(patient.date_of_birth)}</p>
+                <p className="text-sm text-gray-600">Gender: {patient.gender}</p>
+              </div>
+              <div className="ml-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+                View Examinations
+                <Eye className="w-4 h-4 ml-1" />
+              </button>
+            </div>
           </div>
         ))}
       </div>
 
-      {patients.length === 0 && (
+      {filteredPatients.length === 0 && (
         <div className="text-center py-12">
+          <Search className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No patients found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Try adjusting your search terms.' : 'No patients available.'}
+          </p>
+        </div>
+      )}
+
+      {/* Examination Modal */}
+      {showExaminationModal && selectedPatient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-800">
+                Examinations for {selectedPatient.first_name} {selectedPatient.last_name}
+              </h2>
+              <button
+                onClick={closeExaminationModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex h-[calc(90vh-120px)]">
+              {/* Examinations List */}
+              <div className="w-1/2 border-r border-gray-200 p-6 overflow-y-auto">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Examinations</h3>
+                {examinations.length === 0 ? (
+                  <p className="text-gray-500">No examinations found for this patient.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {examinations.map((examination) => (
+                      <div
+                        key={examination.id}
+                        onClick={() => handleExaminationClick(examination)}
+                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                          selectedExamination?.id === examination.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-800">{examination.examination_type}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{examination.body_part_examined}</p>
+                            <p className="text-sm text-gray-600">
+                              {formatDate(examination.examination_date)} at {formatTime(examination.examination_time)}
+                            </p>
+                            <div className="mt-2 flex items-center space-x-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {examination.device_type}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {examination.image_count} images
+                              </span>
+                              {examination.has_reports && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  {examination.report_count} reports
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm text-gray-600">
+                          <p><span className="font-medium">Device:</span> {examination.device_name}</p>
+                          <p><span className="font-medium">Location:</span> {examination.device_location}</p>
+                          <p><span className="font-medium">Technologist:</span> {examination.technologist_name}</p>
+                          <p><span className="font-medium">Physician:</span> {examination.performing_physician}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Examination Details */}
+              <div className="w-1/2 p-6 overflow-y-auto">
+                {selectedExamination ? (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Examination Details</h3>
+                    
+                    {/* Examination Info */}
+                    <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                      <h4 className="font-medium text-gray-800 mb-2">Examination Information</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Type:</span>
+                          <p>{selectedExamination.examination_type}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Body Part:</span>
+                          <p>{selectedExamination.body_part_examined}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Date & Time:</span>
+                          <p>{formatDate(selectedExamination.examination_date)} at {formatTime(selectedExamination.examination_time)}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Status:</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            selectedExamination.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            selectedExamination.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {selectedExamination.status}
+                          </span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-600">Clinical Indication:</span>
+                          <p className="mt-1">{selectedExamination.clinical_indication}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Technologist Info */}
+                    <div className="bg-green-50 rounded-lg p-4 mb-6">
+                      <h4 className="font-medium text-gray-800 mb-2">Technologist Information</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Technologist:</span>
+                          <p>{selectedExamination.technologist_name}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Specialization:</span>
+                          <p>{selectedExamination.technologist_specialization}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-600">Certification:</span>
+                          <p>{selectedExamination.technologist_certification}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Device Info */}
+                    <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                      <h4 className="font-medium text-gray-800 mb-2">Device Information</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Device:</span>
+                          <p>{selectedExamination.device_name}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Model:</span>
+                          <p>{selectedExamination.device_model}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Manufacturer:</span>
+                          <p>{selectedExamination.device_manufacturer}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Location:</span>
+                          <p>{selectedExamination.device_location}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Images */}
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-800 mb-3">Images ({examinationImages.length})</h4>
+                      {examinationImages.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3">
+                          {examinationImages.map((image) => (
+                            <div
+                              key={image.id}
+                              onClick={() => handleImageClick(image)}
+                              className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all"
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                  <ImageIcon className="w-5 h-5 text-gray-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">
+                                    {image.original_filename}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {image.modality} • {formatDate(image.study_date)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">No images available for this examination.</p>
+                      )}
+                    </div>
+
+                    {/* Reports */}
+                    <div>
+                      <h4 className="font-medium text-gray-800 mb-3">Reports ({examinationReports.length})</h4>
+                      {examinationReports.length > 0 ? (
+                        <div className="space-y-3">
+                          {examinationReports.map((report) => (
+                            <div key={report.id} className="border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-medium text-gray-800 capitalize">{report.report_type} Report</h5>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  report.report_status === 'signed' ? 'bg-green-100 text-green-800' :
+                                  report.report_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {report.report_status}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">
+                                <span className="font-medium">Physician:</span> {report.reporting_physician}
+                              </p>
+                              <div className="text-sm">
+                                <div className="mb-2">
+                                  <span className="font-medium text-gray-700">Findings:</span>
+                                  <p className="mt-1 text-gray-600">{report.findings}</p>
+                                </div>
+                                <div className="mb-2">
+                                  <span className="font-medium text-gray-700">Impression:</span>
+                                  <p className="mt-1 text-gray-600">{report.impression}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-700">Recommendations:</span>
+                                  <p className="mt-1 text-gray-600">{report.recommendations}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm">No reports available for this examination.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-500">
+                      <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">Select an examination</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Choose an examination from the list to view details, images, and reports.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {showImageViewer && selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+          <div className="relative max-w-4xl max-h-4xl w-full h-full p-4">
+            <button
+              onClick={() => setShowImageViewer(false)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <div className="bg-white rounded-lg p-4 h-full flex flex-col">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">{selectedImage.original_filename}</h3>
+                <p className="text-sm text-gray-600">
+                  {selectedImage.modality} • {selectedImage.body_part} • {formatDate(selectedImage.study_date)}
+                </p>
+              </div>
+              <div className="flex-1 bg-gray-100 rounded-lg flex items-center justify-center">
+                <p className="text-gray-500">Image viewer would be integrated here</p>
+                {/* This is where you would integrate with the existing MedicalImageViewer component */}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
