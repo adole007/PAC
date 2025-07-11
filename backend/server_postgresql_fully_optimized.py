@@ -1593,7 +1593,7 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
                 FROM medical_images 
                 WHERE patient_id = %s 
                 GROUP BY study_id
-            ) img_count ON e.id = img_count.study_id
+            ) img_count ON e.id::text = img_count.study_id
             LEFT JOIN (
                 SELECT examination_id, COUNT(*) as count 
                 FROM examination_reports 
