@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // Smart backend URL detection with automatic local detection
-let BACKEND_URL = 'https://pac-ik6nachlb-adole007s-projects.vercel.app'; // Default to production
+let BACKEND_URL = 'http://localhost:8001'; // Force local backend
 let API = `${BACKEND_URL}/api`;
 
 // Function to check if local backend is running
