@@ -585,6 +585,9 @@ const PatientExaminationView = () => {
       
       console.log('🚀 Making axios GET request...');
       
+      // Add a small delay to ensure everything is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Use axios with explicit configuration
       const response = await axios({
         method: 'GET',
@@ -599,7 +602,7 @@ const PatientExaminationView = () => {
       console.log('✅ Response received:', {
         status: response.status,
         dataLength: response.data?.length,
-        data: response.data
+        firstExam: response.data?.[0]?.examination_type
       });
       
       if (response.data && Array.isArray(response.data)) {
