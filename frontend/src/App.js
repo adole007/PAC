@@ -805,6 +805,25 @@ const PatientExaminationView = () => {
                       </div>
                     </div>
 
+                    {/* Technologist Info */}
+                    <div className="bg-green-50 rounded-lg p-4 mb-6">
+                      <h4 className="font-medium text-gray-800 mb-2">Technologist Information</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Technologist:</span>
+                          <p>{selectedExamination.technologist_name}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Specialization:</span>
+                          <p>{selectedExamination.technologist_specialization}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium text-gray-600">Certification:</span>
+                          <p>{selectedExamination.technologist_certification}</p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Device Info */}
                     <div className="bg-blue-50 rounded-lg p-4 mb-6">
                       <h4 className="font-medium text-gray-800 mb-2">Device Information</h4>
