@@ -449,6 +449,8 @@ class Examination(BaseModel):
     examination_time: str
     device_id: str  # Reference to the device used
     device_name: str  # Device name for quick access
+    technologist_id: str  # Reference to the technologist who performed the exam
+    technologist_name: str  # Technologist name for quick access
     referring_physician: str
     performing_physician: str
     body_part_examined: str
@@ -473,6 +475,7 @@ class ExaminationCreate(BaseModel):
     examination_date: str
     examination_time: str
     device_id: str
+    technologist_id: str
     referring_physician: str
     performing_physician: str
     body_part_examined: str
