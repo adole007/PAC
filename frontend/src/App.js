@@ -69,23 +69,14 @@ const checkLocalBackend = async () => {
   return false;
 };
 
-// Initialize backend URL
+// Initialize backend URL (simplified)
 const initializeBackend = async () => {
   console.log('🔄 Initializing backend URL detection...');
-  console.log('🔄 NODE_ENV:', process.env.NODE_ENV);
-  console.log('🔄 Current BACKEND_URL:', BACKEND_URL);
+  console.log('🔄 Forced to use LOCAL backend: http://localhost:8001');
   
-  // Always check for local backend first
-  console.log('🔧 Checking for local backend...');
-  const isLocalRunning = await checkLocalBackend();
-  if (isLocalRunning) {
-    BACKEND_URL = 'http://localhost:8001';
-    console.log('🔧 ✅ Switched to LOCAL backend:', BACKEND_URL);
-  } else {
-    console.log('🌐 ➡️ Using PRODUCTION backend:', BACKEND_URL);
-  }
-  
+  BACKEND_URL = 'http://localhost:8001';
   API = `${BACKEND_URL}/api`;
+  
   console.log('🔄 ✅ Final API URL:', API);
   return BACKEND_URL;
 };
