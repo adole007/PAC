@@ -553,13 +553,34 @@ const PatientExaminationView = () => {
   };
 
   const fetchPatientExaminations = async (patientId) => {
+    console.log('🔍 fetchPatientExaminations called with patientId:', patientId);
     try {
       const token = localStorage.getItem('token');
+      console.log('🔑 Token retrieved:', token ? 'Token exists' : 'No token found');
+      
+      const apiUrl = getApiUrl();
+      console.log('🌐 API URL:', apiUrl);
+      
+      const fullUrl = `${apiUrl}/patients/${patientId}/examinations`;
+      console.log('📡 Full API URL:', fullUrl);
+      
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      const response = await axios.get(`${getApiUrl()}/patients/${patientId}/examinations`, { headers });
+      console.log('📋 Headers:', headers);
+      
+      console.log('🚀 Making API call...');
+      const response = await axios.get(fullUrl, { headers });
+      console.log('✅ API call successful, response:', response.data);
+      
       setExaminations(response.data);
+      console.log('📊 Examinations set in state');
     } catch (error) {
-      console.error('Error fetching patient examinations:', error);
+      console.error('❌ Error fetching patient examinations:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       toast.error('Failed to fetch patient examinations');
     }
   };
