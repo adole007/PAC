@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 // Smart backend URL detection with automatic local detection
-let BACKEND_URL = 'http://localhost:8001'; // Force local backend
+let BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001'; // Use env var or local
 let API = `${BACKEND_URL}/api`;
 
 // Function to check if local backend is running
