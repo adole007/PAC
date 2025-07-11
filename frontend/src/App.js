@@ -695,7 +695,14 @@ const PatientExaminationView = () => {
             onClick={(e) => {
               console.log('🎯 Patient card clicked!', e);
               console.log('🎯 Patient data:', patient);
+              e.preventDefault();
+              e.stopPropagation();
               handlePatientClick(patient);
+            }}
+            style={{
+              backgroundColor: '#ffffff',
+              color: '#000000',
+              border: '2px solid #ff0000'
             }}
             className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-blue-500 hover:border-blue-600"
           >
