@@ -230,6 +230,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ COMPREHENSIVE TESTING COMPLETED: Patient Examination view is working perfectly. Successfully tested complete workflow: login with admin/admin123, navigation to Examinations tab, patient list display (2 patients found), patient click functionality, examination modal popup with proper patient data display. Backend URL detection working correctly (switched from production to local http://localhost:8001/api). All API calls successful (200 status codes). Modal shows examination details including CT Scan, device info, and proper UI layout. No 'failed to fetch patient examinations' errors found. Only minor WebSocket connection errors which don't affect functionality."
+      - working: true
+        agent: "testing"
+        comment: "✅ TECHNOLOGIST INFORMATION VERIFICATION COMPLETED: Successfully verified that technologist information is now properly displayed in the Patient Examination view. Testing confirmed: 1) Technologist names are visible in examination list (found 4 technologist entries: Sarah Johnson, Sarah Johnson, Emily Rodriguez, Michael Davis), 2) Technologist Information section is properly displayed in examination details with green background styling, 3) Detailed technologist information includes name, specialization, and certification fields, 4) Different examinations show different technologists (verified Sarah Johnson for CT scans, Emily Rodriguez for X-Ray, Michael Davis for MRI), 5) Technologist information is properly separated from Device Information section. All requested functionality is working as expected."
 
 frontend:
   - task: "Authentication Interface"
