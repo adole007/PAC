@@ -587,19 +587,29 @@ const PatientExaminationView = () => {
         {patients.map((patient) => (
           <div
             key={patient.id}
-            onClick={handleTestClick}
+            onClick={(e) => {
+              console.log('🎯 PATIENT CARD CLICKED!', patient.first_name, patient.last_name);
+              e.preventDefault();
+              e.stopPropagation();
+              handleTestClick();
+            }}
             style={{
               backgroundColor: '#ffffff',
               color: '#000000',
               border: '3px solid #ff0000',
               padding: '20px',
               margin: '10px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minHeight: '100px'
             }}
+            onMouseEnter={() => console.log('🖱️ Mouse entered patient card')}
+            onMouseLeave={() => console.log('🖱️ Mouse left patient card')}
           >
-            <h3>{patient.first_name} {patient.last_name}</h3>
-            <p>ID: {patient.patient_id}</p>
-            <p>Click me!</p>
+            <h3 style={{fontSize: '18px', fontWeight: 'bold', marginBottom: '10px'}}>
+              {patient.first_name} {patient.last_name}
+            </h3>
+            <p style={{fontSize: '14px', marginBottom: '5px'}}>ID: {patient.patient_id}</p>
+            <p style={{fontSize: '16px', color: '#0066cc', fontWeight: 'bold'}}>Click me!</p>
           </div>
         ))}
       </div>
