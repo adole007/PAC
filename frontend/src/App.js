@@ -692,7 +692,11 @@ const PatientExaminationView = () => {
         {filteredPatients.map((patient) => (
           <div
             key={patient.id}
-            onClick={() => handlePatientClick(patient)}
+            onClick={(e) => {
+              console.log('🎯 Patient card clicked!', e);
+              console.log('🎯 Patient data:', patient);
+              handlePatientClick(patient);
+            }}
             className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-blue-500 hover:border-blue-600"
           >
             <div className="flex items-start justify-between">
