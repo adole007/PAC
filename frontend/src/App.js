@@ -561,33 +561,79 @@ const PatientExaminationView = () => {
   const fetchPatientExaminations = async (patientId) => {
     console.log('🔍 fetchPatientExaminations called with patientId:', patientId);
     try {
+      // Get token and API URL
       const token = localStorage.getItem('token');
-      console.log('🔑 Token retrieved:', token ? 'Token exists' : 'No token found');
-      
       const apiUrl = getApiUrl();
+      
+      console.log('🔑 Token exists:', !!token);
       console.log('🌐 API URL:', apiUrl);
       
+      if (!token) {
+        console.error('❌ No authentication token found');
+        toast.error('Authentication required. Please login again.');
+        return;
+      }
+      
       const fullUrl = `${apiUrl}/patients/${patientId}/examinations`;
-      console.log('📡 Full API URL:', fullUrl);
+      console.log('📡 Full URL:', fullUrl);
       
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-      console.log('📋 Headers prepared');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      console.log('📋 Headers prepared:', Object.keys(headers));
       
-      console.log('🚀 Making API call...');
-      const response = await axios.get(fullUrl, { headers });
-      console.log('✅ API call successful, response:', response.data);
+      console.log('🚀 Making axios GET request...');
       
-      setExaminations(response.data);
-      console.log('📊 Examinations set in state');
-    } catch (error) {
-      console.error('❌ Error fetching patient examinations:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
+      // Use axios with explicit configuration
+      const response = await axios({
+        method: 'GET',
+        url: fullUrl,
+        headers: headers,
+        timeout: 10000,
+        validateStatus: function (status) {
+          return status >= 200 && status < 300;
+        }
       });
-      toast.error('Failed to fetch patient examinations');
+      
+      console.log('✅ Response received:', {
+        status: response.status,
+        dataLength: response.data?.length,
+        data: response.data
+      });
+      
+      if (response.data && Array.isArray(response.data)) {
+        setExaminations(response.data);
+        console.log('📊 Examinations set in state:', response.data.length);
+      } else {
+        console.error('❌ Invalid response data format:', response.data);
+        toast.error('Invalid examination data received');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in fetchPatientExaminations:', error);
+      
+      if (error.response) {
+        console.error('❌ Response error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        });
+        
+        if (error.response.status === 401) {
+          toast.error('Authentication failed. Please login again.');
+        } else if (error.response.status === 404) {
+          toast.error('Patient examinations not found.');
+        } else {
+          toast.error(`Server error: ${error.response.status} ${error.response.statusText}`);
+        }
+      } else if (error.request) {
+        console.error('❌ Network error:', error.request);
+        toast.error('Network error. Please check your connection.');
+      } else {
+        console.error('❌ Unknown error:', error.message);
+        toast.error('Failed to fetch patient examinations');
+      }
     }
   };
 
