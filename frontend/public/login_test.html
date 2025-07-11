@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><title>Login Test</title></head>
+<body>
+<h1>Login Test</h1>
+<button onclick="testLogin()">Test Login</button>
+<div id="results"></div>
+
+<script>
+function log(msg) {
+    document.getElementById('results').innerHTML += '<p>' + msg + '</p>';
+    console.log(msg);
+}
+
+function testLogin() {
+    log('Testing login...');
+    
+    const url = 'http://localhost:8001/api/auth/login';
+    log('URL: ' + url);
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            username: 'admin',
+            password: 'admin123'
+        })
+    })
+    .then(response => {
+        log('Response status: ' + response.status);
+        if (response.ok) {
+            return response.json();
+        } else {
+            throw new Error('HTTP ' + response.status);
+        }
+    })
+    .then(data => {
+        log('Login SUCCESS!');
+        log('Token: ' + data.access_token.substring(0, 20) + '...');
+        localStorage.setItem('token', data.access_token);
+        log('Token saved to localStorage');
+    })
+    .catch(error => {
+        log('Login ERROR: ' + error.message);
+    });
+}
+</script>
+</body>
+</html>
