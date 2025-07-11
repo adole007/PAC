@@ -1516,20 +1516,28 @@ async def create_examination(examination_data: ExaminationCreate, current_user: 
             raise HTTPException(status_code=404, detail="Device not found")
         device_name = device_record['name']
         
+        # Get technologist name for quick access
+        cursor.execute("SELECT first_name, last_name FROM technologists WHERE id = %s", (examination_data.technologist_id,))
+        tech_record = cursor.fetchone()
+        if not tech_record:
+            raise HTTPException(status_code=404, detail="Technologist not found")
+        technologist_name = f"{tech_record['first_name']} {tech_record['last_name']}"
+        
         # Create examination
         examination_id = str(uuid.uuid4())
         cursor.execute("""
             INSERT INTO examinations (id, patient_id, examination_type, examination_date, 
-                                    examination_time, device_id, device_name, referring_physician, 
-                                    performing_physician, body_part_examined, clinical_indication,
-                                    examination_protocol, contrast_agent, contrast_amount, 
-                                    patient_position, radiation_dose, priority, created_at, 
-                                    updated_at, created_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    examination_time, device_id, device_name, technologist_id,
+                                    technologist_name, referring_physician, performing_physician, 
+                                    body_part_examined, clinical_indication, examination_protocol, 
+                                    contrast_agent, contrast_amount, patient_position, radiation_dose, 
+                                    priority, created_at, updated_at, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             examination_id, examination_data.patient_id, examination_data.examination_type,
             examination_data.examination_date, examination_data.examination_time,
-            examination_data.device_id, device_name, examination_data.referring_physician,
+            examination_data.device_id, device_name, examination_data.technologist_id,
+            technologist_name, examination_data.referring_physician,
             examination_data.performing_physician, examination_data.body_part_examined,
             examination_data.clinical_indication, examination_data.examination_protocol,
             examination_data.contrast_agent, examination_data.contrast_amount,
