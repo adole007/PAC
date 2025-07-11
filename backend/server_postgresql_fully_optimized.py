@@ -1576,21 +1576,24 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
     try:
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Get examinations with device details and counts
+        # Get examinations with device and technologist details and counts
         cursor.execute("""
             SELECT e.*, d.model as device_model, d.manufacturer as device_manufacturer,
                    d.device_type, d.location as device_location,
+                   t.specialization as technologist_specialization,
+                   t.certification as technologist_certification,
                    COALESCE(img_count.count, 0) as image_count,
                    COALESCE(report_count.count, 0) as report_count,
                    CASE WHEN report_count.count > 0 THEN true ELSE false END as has_reports
             FROM examinations e
             LEFT JOIN devices d ON e.device_id = d.id
+            LEFT JOIN technologists t ON e.technologist_id = t.id
             LEFT JOIN (
                 SELECT study_id, COUNT(*) as count 
                 FROM medical_images 
                 WHERE patient_id = %s 
                 GROUP BY study_id
-            ) img_count ON e.id::text = img_count.study_id
+            ) img_count ON e.id = img_count.study_id
             LEFT JOIN (
                 SELECT examination_id, COUNT(*) as count 
                 FROM examination_reports 
@@ -1602,7 +1605,6 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
         
         examinations = cursor.fetchall()
         
-        # Convert date/time fields to strings for Pydantic validation
         result = []
         for exam in examinations:
             exam_dict = dict(exam)
@@ -1612,8 +1614,13 @@ async def get_patient_examinations(patient_id: str, current_user: User = Depends
                 exam_dict['examination_time'] = str(exam_dict['examination_time'])
             if exam_dict.get('created_at'):
                 exam_dict['created_at'] = exam_dict['created_at'].isoformat() if hasattr(exam_dict['created_at'], 'isoformat') else str(exam_dict['created_at'])
-            if exam_dict.get('updated_at'):
-                exam_dict['updated_at'] = exam_dict['updated_at'].isoformat() if hasattr(exam_dict['updated_at'], 'isoformat') else str(exam_dict['updated_at'])
+            
+            # Handle missing technologist data
+            if not exam_dict.get('technologist_specialization'):
+                exam_dict['technologist_specialization'] = 'Unknown'
+            if not exam_dict.get('technologist_certification'):
+                exam_dict['technologist_certification'] = 'Unknown'
+                
             result.append(ExaminationWithDetails(**exam_dict))
         
         # Log access
