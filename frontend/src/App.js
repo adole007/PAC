@@ -604,9 +604,21 @@ const PatientExaminationView = () => {
   };
 
   const handlePatientClick = async (patient) => {
-    setSelectedPatient(patient);
-    await fetchPatientExaminations(patient.id);
-    setShowExaminationModal(true);
+    console.log('👤 handlePatientClick called with patient:', patient);
+    try {
+      setSelectedPatient(patient);
+      console.log('📋 Selected patient set in state');
+      
+      console.log('🔄 Fetching patient examinations...');
+      await fetchPatientExaminations(patient.id);
+      
+      console.log('🎭 Opening examination modal...');
+      setShowExaminationModal(true);
+      console.log('✅ Modal should be open now');
+    } catch (error) {
+      console.error('❌ Error in handlePatientClick:', error);
+      toast.error('Error opening patient examinations');
+    }
   };
 
   const handleExaminationClick = async (examination) => {
