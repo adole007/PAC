@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head><title>Debug Frontend Auth</title></head>
+<body>
+<h1>Frontend Authentication Debug</h1>
+<div id="results"></div>
+<script>
+const log = (msg) => {
+    document.getElementById('results').innerHTML += '<p>' + msg + '</p>';
+    console.log(msg);
+};
+
+// Check what token is stored
+const token = localStorage.getItem('token');
+log('Token in localStorage: ' + (token ? 'EXISTS' : 'NOT FOUND'));
+
+if (token) {
+    log('Token preview: ' + token.substring(0, 50) + '...');
+    
+    // Test the API call exactly like the frontend does
+    const apiUrl = 'http://localhost:8001/api';
+    const patientId = '25458e8b-496a-442a-af74-dd9872c389ef';
+    const url = `${apiUrl}/patients/${patientId}/examinations`;
+    
+    log('Testing API call to: ' + url);
+    
+    fetch(url, {
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        log('Response status: ' + response.status);
+        return response.text();
+    })
+    .then(data => {
+        if (data.startsWith('[')) {
+            const examinations = JSON.parse(data);
+            log('SUCCESS: Found ' + examinations.length + ' examinations');
+            examinations.forEach((exam, i) => {
+                log(`Exam ${i+1}: ${exam.examination_type} - ${exam.technologist_name}`);
+            });
+        } else {
+            log('ERROR: ' + data);
+        }
+    })
+    .catch(error => {
+        log('FETCH ERROR: ' + error.message);
+    });
+} else {
+    log('No token found - need to login first');
+}
+</script>
+</body>
+</html>
