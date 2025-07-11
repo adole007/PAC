@@ -757,6 +757,7 @@ const PatientExaminationView = () => {
                         <div className="mt-3 text-sm text-gray-600">
                           <p><span className="font-medium">Device:</span> {examination.device_name}</p>
                           <p><span className="font-medium">Location:</span> {examination.device_location}</p>
+                          <p><span className="font-medium">Technologist:</span> {examination.technologist_name}</p>
                           <p><span className="font-medium">Physician:</span> {examination.performing_physician}</p>
                         </div>
                       </div>
