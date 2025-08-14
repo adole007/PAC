@@ -136,6 +136,8 @@ def setup_full_backend():
         # Include the full API router
         app.include_router(api_router)
         
+        logger.info("Successfully imported backend with clinician_notes support")
+        
         # Restore original FastAPI if we patched it
         if original_fastapi:
             original_fastapi.FastAPI = original_fastapi.FastAPI.__bases__[0]
@@ -349,6 +351,95 @@ def setup_minimal_backend():
                             patient_dict[key] = value
                     patients.append(patient_dict)
                 return patients
+            finally:
+                return_db_connection(conn)
+        
+        @app.get("/api/patients/{patient_id}/images")
+        async def get_patient_images(patient_id: str, current_user = Depends(get_current_user)):
+            conn = get_db_connection()
+            try:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                # Check if patient exists
+                cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
+                if not cursor.fetchone():
+                    raise HTTPException(status_code=404, detail="Patient not found")
+                
+                # Get image metadata including clinician_notes
+                cursor.execute("""
+                    SELECT id, patient_id, study_id, modality, body_part, study_date,
+                           original_filename, uploaded_at, clinician_notes
+                    FROM medical_images WHERE patient_id = %s
+                    ORDER BY uploaded_at DESC
+                """, (patient_id,))
+                
+                images = []
+                for row in cursor.fetchall():
+                    image_dict = dict(row)
+                    # Convert date/time fields to strings
+                    for field in ['study_date', 'uploaded_at']:
+                        if image_dict.get(field):
+                            if hasattr(image_dict[field], 'isoformat'):
+                                image_dict[field] = image_dict[field].isoformat()
+                            else:
+                                image_dict[field] = str(image_dict[field])
+                    images.append(image_dict)
+                return images
+            finally:
+                return_db_connection(conn)
+        
+        @app.put("/api/images/{image_id}")
+        async def update_medical_image(image_id: str, payload: dict, current_user = Depends(get_current_user)):
+            """Update medical image fields including clinician_notes."""
+            allowed_fields = {"modality", "body_part", "clinician_notes"}
+            if not any(k in payload for k in allowed_fields):
+                raise HTTPException(status_code=400, detail="No updatable fields provided")
+
+            conn = get_db_connection()
+            try:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                cursor.execute("SELECT id, patient_id FROM medical_images WHERE id = %s", (image_id,))
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Image not found")
+
+                updates = []
+                params = []
+
+                # Update simple text fields if present
+                if 'modality' in payload:
+                    updates.append("modality = %s")
+                    params.append(payload['modality'])
+                if 'body_part' in payload:
+                    updates.append("body_part = %s")
+                    params.append(payload['body_part'])
+
+                # Update dedicated clinician_notes column only
+                if 'clinician_notes' in payload:
+                    updates.append("clinician_notes = %s")
+                    params.append(payload['clinician_notes'])
+
+                if updates:
+                    query = f"UPDATE medical_images SET {', '.join(updates)} WHERE id = %s"
+                    params.append(image_id)
+                    cursor.execute(query, tuple(params))
+                    conn.commit()
+
+                # Insert history entry if notes provided
+                if 'clinician_notes' in payload and payload['clinician_notes'] is not None:
+                    try:
+                        cursor.execute(
+                            """
+                            INSERT INTO medical_image_notes (id, image_id, user_id, note, created_at)
+                            VALUES (%s, %s, %s, %s, %s)
+                            """,
+                            (str(uuid.uuid4()), image_id, current_user['id'], payload['clinician_notes'], datetime.utcnow())
+                        )
+                        conn.commit()
+                    except Exception as e:
+                        # History table might not exist yet; log and continue
+                        logger.warning(f"Failed to insert into medical_image_notes: {e}")
+
+                return {"message": "Image updated successfully"}
             finally:
                 return_db_connection(conn)
         

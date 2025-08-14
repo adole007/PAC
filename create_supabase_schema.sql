@@ -103,6 +103,7 @@ CREATE TABLE medical_images (
     institution_name VARCHAR(200) NOT NULL,
     referring_physician VARCHAR(100) NOT NULL,
     dicom_metadata JSONB DEFAULT '{}'::jsonb,
+    clinician_notes TEXT,
     image_data TEXT NOT NULL,
     thumbnail_data TEXT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
@@ -116,6 +117,22 @@ CREATE TABLE medical_images (
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES users(id)
 );
+
+-- Notes history table for clinician notes per image
+CREATE TABLE medical_image_notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    image_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (image_id) REFERENCES medical_images(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Useful indexes for notes history
+CREATE INDEX idx_image_notes_image_id ON medical_image_notes(image_id);
+CREATE INDEX idx_image_notes_user_id ON medical_image_notes(user_id);
+CREATE INDEX idx_image_notes_created_at ON medical_image_notes(created_at);
 
 -- Create indexes for medical_images table
 CREATE INDEX idx_medical_images_patient_id ON medical_images(patient_id);

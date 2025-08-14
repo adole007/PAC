@@ -67,6 +67,7 @@ CREATE TABLE medical_images (
     institution_name VARCHAR(200) NOT NULL,
     referring_physician VARCHAR(100) NOT NULL,
     dicom_metadata JSON,
+    clinician_notes TEXT,
     image_data LONGTEXT NOT NULL,
     thumbnail_data TEXT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
@@ -86,6 +87,20 @@ CREATE TABLE medical_images (
     INDEX idx_uploaded_by (uploaded_by),
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES users(id)
+);
+
+-- Notes history table
+CREATE TABLE medical_image_notes (
+    id VARCHAR(36) PRIMARY KEY,
+    image_id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_image_notes_image_id (image_id),
+    INDEX idx_image_notes_user_id (user_id),
+    INDEX idx_image_notes_created_at (created_at),
+    FOREIGN KEY (image_id) REFERENCES medical_images(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- Audit Logs table

@@ -26,7 +26,9 @@ import {
   MousePointer,
   Moon,
   Sun,
-  X
+  X,
+  Calendar,
+  User as UserIcon
 } from 'lucide-react';
 
 // Smart backend URL detection with automatic local detection
@@ -36,13 +38,13 @@ let API = `${BACKEND_URL}/api`;
 // Function to check if local backend is running
 const checkLocalBackend = async () => {
   // Always check for local backend (not just in development)
-  console.log('🔍 Checking for local backend at http://localhost:8000/health...');
+  console.log('🔍 Checking for local backend at http://localhost:8001/health...');
   
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
     
-    const response = await fetch('http://localhost:8000/health', {
+    const response = await fetch('http://localhost:8001/health', {
       signal: controller.signal,
       method: 'GET',
       headers: {
@@ -54,7 +56,7 @@ const checkLocalBackend = async () => {
     
     if (response.ok) {
       const healthData = await response.json();
-      console.log('🔧 Local backend detected and running at http://localhost:8000');
+      console.log('🔧 Local backend detected and running at http://localhost:8001');
       console.log('🔧 Health check response:', healthData);
       return true;
     } else {
@@ -79,7 +81,7 @@ const initializeBackend = async () => {
   console.log('🔧 Checking for local backend...');
   const isLocalRunning = await checkLocalBackend();
   if (isLocalRunning) {
-    BACKEND_URL = 'http://localhost:8000';
+    BACKEND_URL = 'http://localhost:8001';
     console.log('🔧 ✅ Switched to LOCAL backend:', BACKEND_URL);
   } else {
     console.log('🌐 ➡️ Using PRODUCTION backend:', BACKEND_URL);
@@ -342,6 +344,7 @@ const DashboardLayout = ({ children }) => {
 
   const navigation = [
     { id: 'patients', label: 'Patients', icon: Users },
+    { id: 'exams', label: 'Patient Exams', icon: Calendar },
     { id: 'viewer', label: 'Image Viewer', icon: Eye },
     { id: 'upload', label: 'Upload Images', icon: Upload },
     ...(user?.role === 'admin' ? [{ id: 'settings', label: 'Settings', icon: Settings }] : [])
@@ -443,65 +446,118 @@ const ThumbnailImage = ({ imageId, thumbnailData, className }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
+    let revokeUrl = null;
     const loadThumbnail = async () => {
       const token = localStorage.getItem('token');
-      if (!token) {
-        // Fallback to base64 if no token
-        setImageSrc(`data:image/png;base64,${thumbnailData}`);
-        setLoading(false);
-        return;
-      }
+      // Helper: try a URL and return an image src or null
+      const tryUrl = async (url) => {
+        try {
+          const res = await fetch(url, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          if (!res.ok) return null;
+          const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+          // JSON payload (base64 data)
+          if (contentType.includes('application/json') || contentType.startsWith('text/plain')) {
+            const text = await res.text();
+            try {
+              const data = JSON.parse(text);
+              // Support both thumbnail_data and image_data keys
+              const b64 = data.thumbnail_data || data.image_data;
+              if (data && data.format === 'base64' && b64) {
+                const media = data.media_type || 'image/png';
+                return `data:${media};base64,${b64}`;
+              }
+              return null;
+            } catch {
+              return null;
+            }
+          }
+
+          // Blob payload
+          const blob = await res.blob();
+          // Only use if it's an image we can render
+          if ((blob.type || '').toLowerCase().startsWith('image/')) {
+            const urlObj = URL.createObjectURL(blob);
+            revokeUrl = urlObj;
+            return urlObj;
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      };
 
       try {
-        // Choose endpoint based on backend type
-        const isLocalBackend = API.includes('localhost');
-        const endpoint = isLocalBackend ? '/thumbnail' : '/thumbnail-base64';
-        const thumbnailUrl = `${API}/images/${imageId}${endpoint}`;
-        
-        const response = await fetch(thumbnailUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        // Prefer already-provided base64 thumbnail if available
+        if (thumbnailData && typeof thumbnailData === 'string' && thumbnailData.length > 0) {
+          setImageSrc(`data:image/png;base64,${thumbnailData}`);
+          setLoading(false);
+          return;
+        }
 
-        if (response.ok) {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            // Base64 endpoint returns JSON
-            const data = await response.json();
-            if (data.format === 'base64') {
-              setImageSrc(`data:${data.media_type};base64,${data.thumbnail_data}`);
-            }
-          } else {
-            // Binary endpoint returns blob
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            setImageSrc(url);
-            
-            // Clean up the URL when component unmounts
-            return () => URL.revokeObjectURL(url);
-          }
+        // If no token and no inline data, nothing to fetch; mark error state gracefully
+        if (!token) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+
+        const base = `${getApiUrl()}/images/${imageId}`;
+        const candidates = [
+          `${base}/thumbnail-base64`, // Vercel style
+          `${base}/thumbnail`,        // Local style
+          `${base}/data-base64`,      // Full image as base64 if it's an image
+          `${base}/data`              // Full image blob if it's an image
+        ];
+
+        let src = null;
+        for (const url of candidates) {
+          src = await tryUrl(url);
+          if (src) break;
+        }
+
+        if (src) {
+          setImageSrc(src);
+        } else if (thumbnailData) {
+          // final fallback
+          setImageSrc(`data:image/png;base64,${thumbnailData}`);
         } else {
-          throw new Error('Failed to load thumbnail');
+          setError(true);
         }
       } catch (err) {
         console.error('Error loading thumbnail:', err);
-        // Fallback to base64 if endpoint fails
-        setImageSrc(`data:image/png;base64,${thumbnailData}`);
-        setError(true);
+        if (thumbnailData) {
+          setImageSrc(`data:image/png;base64,${thumbnailData}`);
+        } else {
+          setError(true);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadThumbnail();
+    return () => {
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
   }, [imageId, thumbnailData]);
 
   if (loading) {
     return (
       <div className={`${className} bg-gray-200 animate-pulse flex items-center justify-center`}>
         <ImageIcon className="w-4 h-4 text-gray-400" />
+      </div>
+    );
+  }
+
+  // Render nothing on hard error if we have no data; keeps layout stable
+  if (error && !imageSrc) {
+    return (
+      <div className={`${className} bg-gray-100 flex items-center justify-center`}>
+        <ImageIcon className="w-4 h-4 text-gray-300" />
       </div>
     );
   }
@@ -514,11 +570,546 @@ const ThumbnailImage = ({ imageId, thumbnailData, className }) => {
       onError={() => {
         if (!error) {
           // Final fallback to base64 if everything fails
-          setImageSrc(`data:image/png;base64,${thumbnailData}`);
+          if (thumbnailData) {
+            setImageSrc(`data:image/png;base64,${thumbnailData}`);
+          }
           setError(true);
         }
       }}
     />
+  );
+};
+
+// Patient Exams Component
+const PatientExams = () => {
+  const [patients, setPatients] = useState([]);
+  const [patientImageCounts, setPatientImageCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const { isDarkMode } = useTheme();
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const response = await axios.get(`${getApiUrl()}/patients`);
+        setPatients(response.data);
+        // Get image counts for each patient
+        await fetchPatientImageCounts(response.data);
+      } catch (error) {
+        toast.error('Failed to fetch patients');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPatients();
+  }, []);
+
+  const fetchPatientImageCounts = async (patientList) => {
+    const counts = {};
+    try {
+      for (const patient of patientList) {
+        try {
+          const response = await axios.get(`${getApiUrl()}/patients/${patient.id}/images`);
+          counts[patient.id] = response.data.length;
+        } catch (error) {
+          counts[patient.id] = 0;
+        }
+      }
+      setPatientImageCounts(counts);
+    } catch (error) {
+      console.error('Failed to fetch patient image counts:', error);
+    }
+  };
+
+  // Local edit modal state (hooks must be before any early return)
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingPatient, setEditingPatient] = useState(null);
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: '',
+    phone: '',
+    email: '',
+    address: '',
+    medical_record_number: '',
+    primary_physician: '',
+    allergies: [],
+    medications: [],
+    medical_history: [],
+    insurance_provider: '',
+    insurance_policy_number: '',
+    insurance_group_number: '',
+    consent_given: false
+  });
+  // Image editing state for the Edit Patient modal
+  const [patientImagesEdit, setPatientImagesEdit] = useState([]);
+  const [imageEdits, setImageEdits] = useState({}); // { [imageId]: { modality, body_part, clinician_notes } }
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = async (patient) => {
+    setEditingPatient(patient);
+    setFormData({
+      patient_id: patient.patient_id || '',
+      first_name: patient.first_name || '',
+      last_name: patient.last_name || '',
+      date_of_birth: patient.date_of_birth || '',
+      gender: patient.gender || '',
+      phone: patient.phone || '',
+      email: patient.email || '',
+      address: patient.address || '',
+      medical_record_number: patient.medical_record_number || '',
+      primary_physician: patient.primary_physician || '',
+      allergies: patient.allergies || [],
+      medications: patient.medications || [],
+      medical_history: patient.medical_history || [],
+      insurance_provider: patient.insurance_provider || '',
+      insurance_policy_number: patient.insurance_policy_number || '',
+      insurance_group_number: patient.insurance_group_number || '',
+      consent_given: !!patient.consent_given
+    });
+
+    try {
+      // Load images for this patient to allow per-image editing (including clinician notes)
+      const res = await axios.get(`${getApiUrl()}/patients/${patient.id}/images`);
+      const imgs = Array.isArray(res.data) ? res.data : [];
+      setPatientImagesEdit(imgs);
+      const initialEdits = {};
+      for (const img of imgs) {
+        initialEdits[img.id] = {
+          modality: img.modality || '',
+          body_part: img.body_part || '',
+          clinician_notes: img.clinician_notes || ''
+        };
+      }
+      setImageEdits(initialEdits);
+    } catch (err) {
+      toast.error('Failed to load patient images');
+      setPatientImagesEdit([]);
+      setImageEdits({});
+    }
+
+    setShowEditForm(true);
+  };
+
+  const handleImageEditChange = (imageId, field, value) => {
+    setImageEdits((prev) => ({
+      ...prev,
+      [imageId]: {
+        ...prev[imageId],
+        [field]: value
+      }
+    }));
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    if (!editingPatient) return;
+    setSaving(true);
+    try {
+      // Update patient fields
+      await axios.put(`${getApiUrl()}/patients/${editingPatient.id}`, formData);
+
+      // Update images (modality, body_part, clinician_notes) if any images are present
+      if (patientImagesEdit.length > 0) {
+        await Promise.all(
+          patientImagesEdit.map((img) => {
+            const payload = imageEdits[img.id] || {};
+            // Only attempt update if there is at least one key in payload
+            if (Object.keys(payload).length === 0) return Promise.resolve();
+            return axios.put(`${getApiUrl()}/images/${img.id}`, payload).catch(() => {
+              // Surface partial failures but do not stop the whole save; we'll toast below
+              return Promise.reject(new Error(`Failed to update image ${img.id}`));
+            });
+          })
+        ).catch((err) => {
+          console.error(err);
+          toast.warning('Some images failed to update.');
+        });
+      }
+
+      toast.success('Patient and image updates saved');
+      // Refresh data
+      const response = await axios.get(`${getApiUrl()}/patients`);
+      setPatients(response.data);
+      await fetchPatientImageCounts(response.data);
+      setShowEditForm(false);
+      setEditingPatient(null);
+      setPatientImagesEdit([]);
+      setImageEdits({});
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Filter patients based on search term
+  const filteredPatients = patients.filter(patient =>
+    patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.patient_id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className={`text-center py-8 ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+        <div className={`animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4 ${
+          isDarkMode ? 'border-blue-500' : 'border-blue-600'
+        }`}></div>
+        Loading patient exams...</div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className={`text-3xl font-bold ${
+          isDarkMode ? 'text-slate-100' : 'text-gray-800'
+        }`}>Patient Exams</h1>
+      </div>
+
+      <div className={`rounded-lg shadow-sm border ${
+        isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+      }`}>
+        <div className="p-6 border-b border-gray-200">
+          <div className="relative">
+            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+              isDarkMode ? 'text-slate-400' : 'text-gray-400'
+            }`} />
+            <input
+              type="text"
+              placeholder="Search patients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode 
+                  ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400' 
+                  : 'border-gray-300 text-gray-900'
+              }`}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className={isDarkMode ? 'bg-slate-700' : 'bg-gray-50'}>
+              <tr>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Patient ID
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Name
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Date of Birth
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Images Count
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Clinician
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Exam Status
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
+                }`}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${
+              isDarkMode ? 'bg-slate-800 divide-slate-700' : 'bg-white divide-gray-200'
+            }`}>
+              {filteredPatients.map((patient) => {
+                const imageCount = patientImageCounts[patient.id] || 0;
+                const hasImages = imageCount > 0;
+                
+                return (
+                  <tr key={patient.id} className={`hover:${
+                    isDarkMode ? 'bg-slate-700' : 'bg-gray-50'
+                  }`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                      isDarkMode ? 'text-slate-100' : 'text-gray-900'
+                    }`}>
+                      {patient.patient_id}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <UserIcon className="w-4 h-4" />
+                        <span>{patient.first_name} {patient.last_name}</span>
+                      </div>
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                    }`}>
+                      {patient.date_of_birth}
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          hasImages 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {imageCount} {imageCount === 1 ? 'image' : 'images'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          patient.primary_physician ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span>{patient.primary_physician || 'Not assigned'}</span>
+                      </div>
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
+                    }`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        hasImages 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {hasImages ? 'Ready for Review' : 'Pending Images'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => openEdit(patient)}
+                        className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                          isDarkMode
+                            ? 'text-slate-200 border-slate-600 hover:bg-slate-700'
+                            : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+                        }`}
+                        title="Edit patient"
+                      >
+                        <Edit className="w-4 h-4 mr-2" /> Edit
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {filteredPatients.length === 0 && (
+          <div className={`text-center py-8 ${
+            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+          }`}>
+            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No patient exams found</p>
+            {searchTerm && (
+              <p className="text-sm mt-2">Try adjusting your search terms</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showEditForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`w-full max-w-xl max-h-[80vh] overflow-y-auto rounded-lg shadow-xl ${
+            isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white'
+          }`}>
+            <div className={`flex items-center justify-between px-4 py-3 border-b ${
+              isDarkMode ? 'border-slate-700' : 'border-gray-200'
+            }`}>
+              <h3 className={`text-base font-semibold ${isDarkMode ? 'text-slate-100' : 'text-gray-800'}`}>
+                Edit Patient
+              </h3>
+              <button
+                onClick={() => setShowEditForm(false)}
+                className={`p-2 rounded-md ${isDarkMode ? 'hover:bg-slate-700' : 'hover:bg-gray-100'}`}
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={submitEdit} className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Patient ID</label>
+                <input
+                  type="text"
+                  value={formData.patient_id}
+                  onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>First Name</label>
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Last Name</label>
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Date of Birth</label>
+                <input
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Gender</label>
+                <input
+                  type="text"
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Phone</label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>MRN</label>
+                <input
+                  type="text"
+                  value={formData.medical_record_number}
+                  onChange={(e) => setFormData({ ...formData, medical_record_number: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Primary Physician</label>
+                <input
+                  type="text"
+                  value={formData.primary_physician}
+                  onChange={(e) => setFormData({ ...formData, primary_physician: e.target.value })}
+                  className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                />
+              </div>
+
+              {/* Images editing section */}
+              <div className="md:col-span-2 mt-3">
+                <h4 className={`text-md font-semibold mb-2 ${isDarkMode ? 'text-slate-100' : 'text-gray-800'}`}>Patient Images</h4>
+                {patientImagesEdit.length === 0 ? (
+                  <p className={isDarkMode ? 'text-slate-400' : 'text-gray-500'}>No images found for this patient.</p>) : (
+                  <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                    {patientImagesEdit.map((img) => (
+                      <div key={img.id} className={`rounded-md p-3 border ${isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'}`}>
+                        <div className="flex items-start gap-2">
+                          <ThumbnailImage imageId={img.id} thumbnailData={img.thumbnail_data} className="w-20 h-20 object-cover rounded" />
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
+                            <div>
+                              <label className={`block text-xs mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Modality</label>
+                              <input
+                                type="text"
+                                value={imageEdits[img.id]?.modality || ''}
+                                onChange={(e) => handleImageEditChange(img.id, 'modality', e.target.value)}
+                                className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                              />
+                            </div>
+                            <div>
+                              <label className={`block text-xs mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Body Part</label>
+                              <input
+                                type="text"
+                                value={imageEdits[img.id]?.body_part || ''}
+                                onChange={(e) => handleImageEditChange(img.id, 'body_part', e.target.value)}
+                                className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                              />
+                            </div>
+                            <div className="md:col-span-3">
+                              <label className={`block text-xs mb-1 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>Clinician Notes</label>
+                              <textarea
+                                rows={3}
+                                value={imageEdits[img.id]?.clinician_notes || ''}
+                                onChange={(e) => handleImageEditChange(img.id, 'clinician_notes', e.target.value)}
+                                placeholder="Enter clinician notes for this image"
+                                className={`w-full px-3 py-2 rounded-md border ${isDarkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-gray-300'}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="md:col-span-2 flex justify-end space-x-2 mt-2 sticky bottom-0 bg-inherit py-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(false)}
+                  className={`px-4 py-2 rounded-md border ${isDarkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`px-4 py-2 rounded-md text-white ${saving ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -1321,7 +1912,7 @@ const ImageUpload = () => {
 
   const fetchPatients = async () => {
     try {
-      const response = await axios.post(`${getApiUrl()}/patients`, newPatient);
+      const response = await axios.get(`${getApiUrl()}/patients`);
       setPatients(response.data);
     } catch (error) {
       toast.error('Failed to fetch patients');
@@ -1717,6 +2308,8 @@ const MedicalImageViewer = () => {
     annotations: [],
     measurements: []
   });
+  // Clinician notes for the selected image
+  const [clinicianNotes, setClinicianNotes] = useState('');
   const canvasRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -1843,6 +2436,11 @@ const MedicalImageViewer = () => {
       renderImage();
     }
   }, [selectedImage, viewerState]);
+
+  // Keep clinician notes synced with the selected image
+  useEffect(() => {
+    setClinicianNotes(selectedImage?.clinician_notes || '');
+  }, [selectedImage?.id]);
 
   useEffect(() => {
     if (overlayCanvasRef.current) {
@@ -2934,6 +3532,20 @@ const MedicalImageViewer = () => {
     }));
   };
 
+  // Save clinician notes for the selected image
+  const handleSaveClinicianNotes = async () => {
+    if (!selectedImage) return;
+    try {
+      await axios.put(`${getApiUrl()}/images/${selectedImage.id}`, { clinician_notes: clinicianNotes });
+      setSelectedImage(prev => (prev ? { ...prev, clinician_notes: clinicianNotes } : prev));
+      setPatientImages(prev => prev.map(img => (img.id === selectedImage.id ? { ...img, clinician_notes: clinicianNotes } : img)));
+      toast.success('Clinician notes saved');
+    } catch (err) {
+      console.error('Failed to save clinician notes:', err);
+      toast.error('Failed to save clinician notes');
+    }
+  };
+
   const handleDownload = async () => {
     if (!selectedImage) return;
     
@@ -3418,8 +4030,27 @@ const MedicalImageViewer = () => {
                   )}
                 </div>
 
+                {/* Clinician Notes Panel */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Clinician Notes</h4>
+                  <textarea
+                    value={clinicianNotes}
+                    onChange={(e) => setClinicianNotes(e.target.value)}
+                    rows={4}
+                    placeholder="Write observations, impressions, action items..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">These notes are saved to this image and appear in the Patient Exams popup.</span>
+                    <button
+                      onClick={handleSaveClinicianNotes}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >Save Notes</button>
+                  </div>
+                </div>
+
 {/* Save Annotated Image */}
-                <div className="mt-4 flex justify-end">
+                <div className="mt-2 flex justify-end">
                   <button
                     onClick={handleSaveAnnotatedImage}
                     className="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition flex items-center space-x-2"
@@ -3465,6 +4096,8 @@ const Dashboard = ({ activeTab }) => {
     switch (activeTab) {
       case 'patients':
         return <PatientManagement />;
+      case 'exams':
+        return <PatientExams />;
       case 'viewer':
         return <MedicalImageViewer />;
       case 'upload':

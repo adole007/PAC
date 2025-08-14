@@ -355,6 +355,7 @@ class MedicalImage(BaseModel):
     institution_name: str
     referring_physician: str
     dicom_metadata: Dict[str, Any] = {}
+    clinician_notes: Optional[str] = None
     original_filename: str
     file_size: int
     image_format: str
@@ -377,6 +378,7 @@ class MedicalImageThumbnail(BaseModel):
     study_date: str
     original_filename: str
     uploaded_at: datetime
+    clinician_notes: Optional[str] = None
 
 # ==================== FILE STORAGE ====================
 
@@ -984,7 +986,7 @@ async def get_patient_images(patient_id: str, current_user: User = Depends(get_c
         # Get image metadata only (no binary data)
         cursor.execute("""
             SELECT id, patient_id, study_id, modality, body_part, study_date,
-                   original_filename, uploaded_at
+                   original_filename, uploaded_at, clinician_notes
             FROM medical_images WHERE patient_id = %s
             ORDER BY uploaded_at DESC
         """, (patient_id,))
@@ -1160,6 +1162,70 @@ async def get_medical_image(image_id: str, current_user: User = Depends(get_curr
         await cache_set(cache_key, image.json(), 3600)
         
         return image
+    finally:
+        return_db_connection(conn)
+
+@api_router.put("/images/{image_id}")
+async def update_medical_image(image_id: str, payload: Dict[str, Any], current_user: User = Depends(get_current_user)):
+    """Update medical image fields.
+    Supports updating modality, body_part, and clinician_notes.
+    - clinician_notes is saved only in its dedicated column (no mirroring into dicom_metadata).
+    - A history entry is inserted into medical_image_notes if clinician_notes is provided.
+    """
+    allowed_fields = {"modality", "body_part", "clinician_notes"}
+    if not any(k in payload for k in allowed_fields):
+        raise HTTPException(status_code=400, detail="No updatable fields provided")
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT id, patient_id FROM medical_images WHERE id = %s", (image_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Image not found")
+
+        updates = []
+        params = []
+
+        # Update simple text fields if present
+        if 'modality' in payload:
+            updates.append("modality = %s")
+            params.append(payload['modality'])
+        if 'body_part' in payload:
+            updates.append("body_part = %s")
+            params.append(payload['body_part'])
+
+        # Update dedicated clinician_notes column only (no dicom_metadata changes)
+        if 'clinician_notes' in payload:
+            updates.append("clinician_notes = %s")
+            params.append(payload['clinician_notes'])
+
+        if updates:
+            query = f"UPDATE medical_images SET {', '.join(updates)} WHERE id = %s"
+            params.append(image_id)
+            cursor.execute(query, tuple(params))
+            conn.commit()
+
+        # Insert history entry if notes provided
+        if 'clinician_notes' in payload and payload['clinician_notes'] is not None:
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO medical_image_notes (id, image_id, user_id, note, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (str(uuid.uuid4()), image_id, current_user.id, payload['clinician_notes'], datetime.utcnow())
+                )
+                conn.commit()
+            except Exception as e:
+                # History table might not exist yet; log and continue
+                logger.warning(f"Failed to insert into medical_image_notes: {e}")
+
+        # Clear caches related to this image and the patient's image list
+        await cache_delete(f"image_metadata:{image_id}")
+        await cache_delete(f"patient:{row['patient_id']}:images")
+
+        return {"message": "Image updated successfully"}
     finally:
         return_db_connection(conn)
 

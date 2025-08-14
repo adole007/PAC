@@ -82,6 +82,7 @@ def create_sqlite_database():
             institution_name VARCHAR(200) NOT NULL,
             referring_physician VARCHAR(100) NOT NULL,
             dicom_metadata TEXT, -- JSON as text
+            clinician_notes TEXT,
             image_data TEXT NOT NULL, -- Base64 image data
             thumbnail_data TEXT NOT NULL,
             original_filename VARCHAR(255) NOT NULL,
@@ -109,6 +110,19 @@ def create_sqlite_database():
             ip_address VARCHAR(45) NOT NULL,
             user_agent TEXT,
             details TEXT, -- JSON as text
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
+    # Create medical_image_notes history table
+    cursor.execute("""
+        CREATE TABLE medical_image_notes (
+            id VARCHAR(36) PRIMARY KEY,
+            image_id VARCHAR(36) NOT NULL,
+            user_id VARCHAR(36) NOT NULL,
+            note TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (image_id) REFERENCES medical_images(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
