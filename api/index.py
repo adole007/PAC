@@ -108,6 +108,23 @@ async def api_health_check():
         "secret_key_configured": bool(os.environ.get('SECRET_KEY'))
     }
 
+@app.get("/api/debug/backend-status")
+async def debug_backend_status():
+    """Debug endpoint to check which backend is loaded and working"""
+    return {
+        "backend_type": "minimal" if 'setup_minimal_backend_success' in globals() else "unknown",
+        "full_backend_attempted": 'full_backend_attempted' in globals(),
+        "full_backend_success": 'full_backend_success' in globals(),
+        "minimal_backend_success": 'setup_minimal_backend_success' in globals(),
+        "available_endpoints": [route.path for route in app.routes if hasattr(route, 'path')],
+        "environment_vars": {
+            "DATABASE_URL_configured": bool(os.environ.get('DATABASE_URL')),
+            "SECRET_KEY_configured": bool(os.environ.get('SECRET_KEY')),
+            "SERVERLESS_MODE": os.environ.get('SERVERLESS_MODE'),
+            "USE_MEMORY_CACHE": os.environ.get('USE_MEMORY_CACHE')
+        }
+    }
+
 @app.get("/api/debug/database")
 async def debug_database():
     """Debug endpoint to check database connectivity and table structure"""
@@ -630,10 +647,16 @@ def setup_minimal_backend():
         return False
 
 # Try full backend first, fallback to minimal
+full_backend_attempted = True
+full_backend_success = False
+setup_minimal_backend_success = False
+
 if setup_full_backend():
     logger.info("Full backend integration successful")
+    full_backend_success = True
 elif setup_minimal_backend():
     logger.info("Minimal backend integration successful")
+    setup_minimal_backend_success = True
 else:
     logger.warning("Using fallback mode - limited functionality")
     
