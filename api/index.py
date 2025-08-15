@@ -114,36 +114,54 @@ def setup_full_backend():
     try:
         logger.info("Setting up full optimized backend...")
         
-        # Import the full optimized backend without the lifespan
-        import sys
+        # Import the contextlib for lifespan handling
+        from contextlib import asynccontextmanager
         
-        # First, let's patch the optimized backend to disable lifespan
-        original_fastapi = sys.modules.get('fastapi')
-        if original_fastapi:
-            # Create a patched FastAPI class that ignores lifespan
-            class ServerlessFastAPI(original_fastapi.FastAPI):
-                def __init__(self, *args, **kwargs):
-                    # Remove lifespan from kwargs to prevent startup issues
-                    kwargs.pop('lifespan', None)
-                    super().__init__(*args, **kwargs)
+        # Add the backend directory to the path if not already there
+        from pathlib import Path
+        backend_dir = str(Path(__file__).parent.parent / 'backend')
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+        
+        # Mock the lifespan manager to do nothing in serverless mode
+        @asynccontextmanager
+        async def mock_lifespan(app: FastAPI):
+            logger.info("Serverless mode: skipping lifespan events")
+            yield
+        
+        # Create a mock module for the lifespan
+        class MockLifespan:
+            def __init__(self):
+                self.lifespan = mock_lifespan
+        
+        # Temporarily add mock to modules
+        original_modules = sys.modules.copy()
+        
+        try:
+            # Import and patch the backend module
+            import server_postgresql_fully_optimized
             
-            # Temporarily replace FastAPI in the module
-            original_fastapi.FastAPI = ServerlessFastAPI
-        
-        # Now try to import the backend
-        from server_postgresql_fully_optimized import api_router
-        
-        # Include the full API router
-        app.include_router(api_router)
-        
-        logger.info("Successfully imported backend with clinician_notes support")
-        
-        # Restore original FastAPI if we patched it
-        if original_fastapi:
-            original_fastapi.FastAPI = original_fastapi.FastAPI.__bases__[0]
-        
-        logger.info("Successfully integrated full optimized backend")
-        return True
+            # Replace the lifespan in the module if it exists
+            if hasattr(server_postgresql_fully_optimized, 'lifespan'):
+                server_postgresql_fully_optimized.lifespan = mock_lifespan
+                logger.info("Patched lifespan function")
+            
+            # Import the router
+            from server_postgresql_fully_optimized import api_router
+            
+            # Include the full API router
+            app.include_router(api_router)
+            
+            logger.info("Successfully imported backend with clinician_notes support")
+            logger.info("Successfully integrated full optimized backend")
+            return True
+            
+        except Exception as inner_e:
+            logger.error(f"Error during backend import: {inner_e}")
+            # Restore original modules on failure
+            sys.modules.clear()
+            sys.modules.update(original_modules)
+            raise inner_e
         
     except ImportError as e:
         logger.error(f"Import error in full backend: {e}")
@@ -461,6 +479,36 @@ def setup_minimal_backend():
                 }
             finally:
                 return_db_connection(conn)
+        
+        # Create default admin user if none exists
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if admin user exists
+            cursor.execute("SELECT id FROM users WHERE username = %s", ("admin",))
+            if not cursor.fetchone():
+                # Create admin user
+                admin_id = str(uuid.uuid4())
+                admin_password = get_password_hash("password")
+                admin_email = "admin@jajuwa.com"
+                admin_name = "Administrator"
+                now = datetime.utcnow()
+                
+                cursor.execute("""
+                    INSERT INTO users (id, username, email, full_name, hashed_password, role, created_at, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (admin_id, "admin", admin_email, admin_name, admin_password, "admin", now, True))
+                
+                conn.commit()
+                logger.info("Default admin user created: username='admin', password='password'")
+            else:
+                logger.info("Admin user already exists")
+                
+            return_db_connection(conn)
+        except Exception as e:
+            logger.error(f"Failed to create admin user: {e}")
+            # Continue anyway - the rest of the API should work
         
         logger.info("Successfully set up minimal backend")
         return True

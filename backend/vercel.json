@@ -6,14 +6,36 @@
       "use": "@vercel/python"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server_postgresql_fully_optimized.py"
-    }
-  ],
   "env": {
     "DATABASE_URL": "postgresql://postgres.fjmlshmkdaufqkefmixw:jajuwa%40pac%40@aws-0-eu-north-1.pooler.supabase.com:5432/postgres",
-    "SECRET_KEY": "jajuwa_pac_system"
-  }
+    "SECRET_KEY": "jajuwa_pac_system",
+    "USE_MEMORY_CACHE": "true",
+    "DB_POOL_MIN_CONN": "0",
+    "DB_POOL_MAX_CONN": "1",
+    "IMAGE_PROCESSING_THREADS": "1",
+    "BACKGROUND_TASK_THREADS": "1",
+    "CACHE_SIZE": "50",
+    "STORAGE_PATH": "/tmp",
+    "DISABLE_LIFESPAN": "true",
+    "SERVERLESS_MODE": "true"
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ]
 }

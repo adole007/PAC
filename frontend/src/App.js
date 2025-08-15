@@ -32,7 +32,8 @@ import {
 } from 'lucide-react';
 
 // Smart backend URL detection with automatic local detection
-let BACKEND_URL = 'https://pac-ik6nachlb-adole007s-projects.vercel.app'; // Default to production
+// In production, both frontend and backend are on the same domain
+let BACKEND_URL = process.env.NODE_ENV === 'production' ? 'https://pac1-nine.vercel.app' : 'https://pac1-nine.vercel.app'; // Use working API URL
 let API = `${BACKEND_URL}/api`;
 
 // Function to check if local backend is running

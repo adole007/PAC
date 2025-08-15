@@ -26,8 +26,16 @@
   "env": {
     "DATABASE_URL": "postgresql://postgres.fjmlshmkdaufqkefmixw:jajuwa%40pac%40@aws-0-eu-north-1.pooler.supabase.com:5432/postgres",
     "SECRET_KEY": "jajuwa_pac_system",
+    "USE_MEMORY_CACHE": "true",
+    "DB_POOL_MIN_CONN": "0",
+    "DB_POOL_MAX_CONN": "1",
+    "IMAGE_PROCESSING_THREADS": "1",
+    "BACKGROUND_TASK_THREADS": "1",
+    "CACHE_SIZE": "50",
+    "STORAGE_PATH": "/tmp",
+    "DISABLE_LIFESPAN": "true",
+    "SERVERLESS_MODE": "true",
     "VERCEL_ENV": "production",
-    "VERCEL_URL": "pac-9w4yuvea0-adole007s-projects.vercel.app",
     "NEXT_PUBLIC_VERCEL_ENV": "production"
   },
   "headers": [
