@@ -108,6 +108,116 @@ async def api_health_check():
         "secret_key_configured": bool(os.environ.get('SECRET_KEY'))
     }
 
+@app.get("/api/debug/database")
+async def debug_database():
+    """Debug endpoint to check database connectivity and table structure"""
+    import psycopg2
+    import psycopg2.extras
+    
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if not DATABASE_URL:
+        return {"error": "DATABASE_URL not configured"}
+    
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Check if users table exists
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'users'
+        """)
+        users_table_exists = cursor.fetchone() is not None
+        
+        # Check if patients table exists
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'patients'
+        """)
+        patients_table_exists = cursor.fetchone() is not None
+        
+        # Count users if table exists
+        user_count = 0
+        if users_table_exists:
+            cursor.execute("SELECT COUNT(*) FROM users")
+            user_count = cursor.fetchone()[0]
+        
+        # Count patients if table exists
+        patient_count = 0
+        if patients_table_exists:
+            cursor.execute("SELECT COUNT(*) FROM patients")
+            patient_count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "database_connected": True,
+            "users_table_exists": users_table_exists,
+            "patients_table_exists": patients_table_exists,
+            "user_count": user_count,
+            "patient_count": patient_count
+        }
+    
+    except Exception as e:
+        return {
+            "database_connected": False,
+            "error": str(e)
+        }
+
+@app.post("/api/debug/create-admin")
+async def debug_create_admin():
+    """Debug endpoint to manually create admin user"""
+    import psycopg2
+    import psycopg2.extras
+    from passlib.context import CryptContext
+    import uuid
+    from datetime import datetime
+    
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if not DATABASE_URL:
+        return {"error": "DATABASE_URL not configured"}
+    
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Check if admin user already exists
+        cursor.execute("SELECT id FROM users WHERE username = %s", ("admin",))
+        if cursor.fetchone():
+            conn.close()
+            return {"message": "Admin user already exists"}
+        
+        # Create admin user
+        admin_id = str(uuid.uuid4())
+        admin_password = pwd_context.hash("password")
+        admin_email = "admin@jajuwa.com"
+        admin_name = "Administrator"
+        now = datetime.utcnow()
+        
+        cursor.execute("""
+            INSERT INTO users (id, username, email, full_name, hashed_password, role, created_at, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (admin_id, "admin", admin_email, admin_name, admin_password, "admin", now, True))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "message": "Admin user created successfully",
+            "username": "admin",
+            "password": "password",
+            "id": admin_id
+        }
+    
+    except Exception as e:
+        return {
+            "error": f"Failed to create admin user: {str(e)}"
+        }
+
 # Import the full optimized backend with error handling
 def setup_full_backend():
     """Set up the full backend with all dependencies"""
