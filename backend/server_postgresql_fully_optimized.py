@@ -1124,6 +1124,43 @@ async def get_image_data(image_id: str, current_user: User = Depends(get_current
     finally:
         return_db_connection(conn)
 
+@api_router.get("/images/{image_id}/data-base64")
+async def get_image_data_base64(image_id: str, current_user: User = Depends(get_current_user)):
+    """Serve full image as base64 JSON (for production/remote backend compatibility)"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT image_data, image_format FROM medical_images WHERE id = %s", (image_id,))
+        result = cursor.fetchone()
+        
+        if not result or not result['image_data']:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        image_data_base64 = result['image_data']
+        
+        # Detect format from base64 data
+        try:
+            first_bytes = base64.b64decode(image_data_base64[:20])
+            media_type = "image/webp"  # Default for optimized backend
+            if first_bytes.startswith(b'\x89PNG'):
+                media_type = "image/png"
+            elif first_bytes.startswith(b'\xff\xd8\xff'):
+                media_type = "image/jpeg"
+            elif first_bytes.startswith(b'GIF87a') or first_bytes.startswith(b'GIF89a'):
+                media_type = "image/gif"
+            elif first_bytes.startswith(b'RIFF'):
+                media_type = "image/webp"
+        except:
+            media_type = "image/webp"
+        
+        return {
+            "image_data": image_data_base64,
+            "media_type": media_type,
+            "format": "base64"
+        }
+    finally:
+        return_db_connection(conn)
+
 @api_router.get("/images/{image_id}", response_model=MedicalImage)
 async def get_medical_image(image_id: str, current_user: User = Depends(get_current_user)):
     """Get image metadata"""
