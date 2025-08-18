@@ -1015,14 +1015,19 @@ async def get_patient_images(patient_id: str, current_user: User = Depends(get_c
 @api_router.get("/images/{image_id}/thumbnail")
 async def get_image_thumbnail(image_id: str, current_user: User = Depends(get_current_user)):
     """Serve thumbnail with file-first approach (Supabase compatible)"""
-    # Try to serve from file first (fastest)
-    thumbnail_path = FileStorageManager.get_thumbnail_path(image_id)
-    if thumbnail_path.exists():
-        return FileResponse(
-            thumbnail_path,
-            media_type="image/webp",
-            headers={"Cache-Control": "max-age=3600"}
-        )
+    # In serverless mode, skip file operations that might fail
+    if not config.SERVERLESS_MODE:
+        # Try to serve from file first (fastest) - only in non-serverless
+        try:
+            thumbnail_path = FileStorageManager.get_thumbnail_path(image_id)
+            if thumbnail_path.exists():
+                return FileResponse(
+                    thumbnail_path,
+                    media_type="image/webp",
+                    headers={"Cache-Control": "max-age=3600"}
+                )
+        except Exception as e:
+            logger.warning(f"File serving failed in serverless mode: {e}")
     
     # Fallback to database (Supabase compatibility)
     conn = get_db_connection()
@@ -1036,8 +1041,12 @@ async def get_image_thumbnail(image_id: str, current_user: User = Depends(get_cu
         
         thumbnail_data = base64.b64decode(result['thumbnail_data'])
         
-        # Save to file for future requests
-        await FileStorageManager.save_thumbnail(thumbnail_data, image_id)
+        # Only try to save to file in non-serverless mode
+        if not config.SERVERLESS_MODE:
+            try:
+                await FileStorageManager.save_thumbnail(thumbnail_data, image_id)
+            except Exception as e:
+                logger.warning(f"Failed to save thumbnail file in serverless mode: {e}")
         
         return Response(
             content=thumbnail_data,
@@ -1087,14 +1096,19 @@ async def get_image_thumbnail_base64(image_id: str, current_user: User = Depends
 @api_router.get("/images/{image_id}/data")
 async def get_image_data(image_id: str, current_user: User = Depends(get_current_user)):
     """Serve full image with file-first approach (Supabase compatible)"""
-    # Try to serve from file first (fastest)
-    image_path = FileStorageManager.get_image_path(image_id, 'webp')
-    if image_path.exists():
-        return FileResponse(
-            image_path,
-            media_type="image/webp",
-            headers={"Cache-Control": "max-age=3600"}
-        )
+    # In serverless mode, skip file operations that might fail
+    if not config.SERVERLESS_MODE:
+        # Try to serve from file first (fastest) - only in non-serverless
+        try:
+            image_path = FileStorageManager.get_image_path(image_id, 'webp')
+            if image_path.exists():
+                return FileResponse(
+                    image_path,
+                    media_type="image/webp",
+                    headers={"Cache-Control": "max-age=3600"}
+                )
+        except Exception as e:
+            logger.warning(f"File serving failed in serverless mode: {e}")
     
     # Fallback to database (Supabase compatibility)
     conn = get_db_connection()
@@ -1108,8 +1122,12 @@ async def get_image_data(image_id: str, current_user: User = Depends(get_current
         
         image_data = base64.b64decode(result['image_data'])
         
-        # Save to file for future requests
-        await FileStorageManager.save_image(image_data, image_id, 'webp')
+        # Only try to save to file in non-serverless mode
+        if not config.SERVERLESS_MODE:
+            try:
+                await FileStorageManager.save_image(image_data, image_id, 'webp')
+            except Exception as e:
+                logger.warning(f"Failed to save image file in serverless mode: {e}")
         
         # Determine media type
         media_type = "image/webp"
