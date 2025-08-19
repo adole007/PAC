@@ -876,6 +876,72 @@ async def get_patients(current_user: User = Depends(get_current_user)):
     finally:
         return_db_connection(conn)
 
+@api_router.put("/patients/{patient_id}", response_model=Patient)
+async def update_patient(patient_id: str, patient_data: PatientCreate, current_user: User = Depends(get_current_user)):
+    """Update an existing patient"""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Check if patient exists
+        cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
+        existing_patient = cursor.fetchone()
+        if not existing_patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Check if patient_id conflicts with other patients (exclude current patient)
+        cursor.execute("SELECT * FROM patients WHERE patient_id = %s AND id != %s", (patient_data.patient_id, patient_id))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Patient ID already exists")
+        
+        # Update patient
+        now = datetime.utcnow()
+        
+        cursor.execute("""
+            UPDATE patients SET
+                patient_id = %s, first_name = %s, last_name = %s, date_of_birth = %s, gender = %s,
+                phone = %s, email = %s, address = %s, medical_record_number = %s, primary_physician = %s,
+                allergies = %s, medications = %s, medical_history = %s, insurance_provider = %s,
+                insurance_policy_number = %s, insurance_group_number = %s, consent_given = %s,
+                updated_at = %s
+            WHERE id = %s
+        """, (
+            patient_data.patient_id, patient_data.first_name, patient_data.last_name,
+            patient_data.date_of_birth, patient_data.gender, patient_data.phone,
+            patient_data.email, patient_data.address, patient_data.medical_record_number,
+            patient_data.primary_physician, json.dumps(patient_data.allergies),
+            json.dumps(patient_data.medications), json.dumps(patient_data.medical_history),
+            patient_data.insurance_provider, patient_data.insurance_policy_number,
+            patient_data.insurance_group_number, patient_data.consent_given,
+            now, patient_id
+        ))
+        
+        conn.commit()
+        
+        # Clear cache
+        await cache_delete("patients:all")
+        
+        # Return updated patient
+        cursor.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
+        updated_row = cursor.fetchone()
+        updated_dict = dict(updated_row)
+        
+        # Convert date fields to strings
+        for field in ['date_of_birth', 'created_at', 'updated_at', 'last_accessed']:
+            if updated_dict.get(field):
+                if hasattr(updated_dict[field], 'isoformat'):
+                    updated_dict[field] = updated_dict[field].isoformat()
+                else:
+                    updated_dict[field] = str(updated_dict[field])
+        
+        # Parse JSON fields safely
+        for field in ['allergies', 'medications', 'medical_history', 'access_log']:
+            updated_dict[field] = json.loads(updated_dict.get(field) or '[]')
+        
+        return Patient(**updated_dict)
+    finally:
+        return_db_connection(conn)
+
 @api_router.post("/patients/{patient_id}/images")
 async def upload_medical_image(
     patient_id: str,
@@ -1383,4 +1449,5 @@ app.include_router(api_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    port = int(os.environ.get('PORT', '8002'))
+    uvicorn.run(app, host="127.0.0.1", port=port)

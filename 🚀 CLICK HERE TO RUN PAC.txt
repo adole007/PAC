@@ -1,0 +1,83 @@
+🏥 PAC MEDICAL SYSTEM - DESKTOP APPLICATION
+==========================================
+
+🎯 TO RUN THE PAC APPLICATION, YOU HAVE 3 OPTIONS:
+
+📋 OPTION 1: PORTABLE EXECUTABLE (EASIEST - NO INSTALLATION NEEDED)
+──────────────────────────────────────────────────────────────────
+
+Double-click this file:
+📁 dist/PAC Medical System 1.0.0.exe
+
+✅ This is a PORTABLE EXECUTABLE that runs on any Windows laptop
+✅ No installation required
+✅ Includes everything needed
+✅ Just double-click and it runs!
+
+📋 OPTION 2: INSTALLER (INSTALLS TO SYSTEM)
+─────────────────────────────────────────────
+
+Double-click this file:
+📁 dist/PAC Medical System Setup 1.0.0.exe
+
+✅ This INSTALLS the PAC system to your computer
+✅ Creates desktop shortcuts
+✅ Adds to Start Menu
+✅ Can be uninstalled later
+
+📋 OPTION 3: QUICK LAUNCHER (REQUIRES NODE.JS + PYTHON)
+────────────────────────────────────────────────────────
+
+Double-click this file:
+📁 PAC-Desktop-Launcher.bat
+
+✅ Requires Node.js and Python to be installed first
+✅ Automatically installs dependencies
+✅ Fastest startup after first run
+✅ Development mode with hot reload
+
+🔧 REQUIREMENTS FOR OPTIONS 1 & 2:
+─────────────────────────────────────
+
+✅ Windows 10/11 (64-bit)
+✅ Internet connection (for Supabase database)
+✅ That's it! Everything else is included.
+
+🔧 REQUIREMENTS FOR OPTION 3:
+────────────────────────────────
+
+✅ Node.js (https://nodejs.org/)
+✅ Python (https://python.org/)
+✅ Internet connection (for Supabase database)
+
+🌟 RECOMMENDED: OPTION 1 (Portable Executable)
+─────────────────────────────────────────────────
+
+The portable executable is the EASIEST way to run PAC:
+- No installation needed
+- Works on any Windows laptop
+- Just double-click and run!
+
+File: dist/PAC Medical System 1.0.0.exe
+Size: ~95 MB
+
+🔐 LOGIN CREDENTIALS:
+──────────────────────
+
+Username: admin
+Password: admin123
+
+🌐 ACCESS URLS (when running):
+─────────────────────────────
+
+Frontend: http://127.0.0.1:3000
+Backend:  http://127.0.0.1:8001
+Database: Supabase (Cloud)
+
+🎉 ENJOY YOUR PAC MEDICAL SYSTEM!
+──────────────────────────────────
+
+The application connects to your Supabase database,
+so all data is synced with your web version.
+
+For support, check README-DESKTOP.md

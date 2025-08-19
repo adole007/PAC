@@ -1196,10 +1196,20 @@ const PatientManagement = () => {
     e.preventDefault();
     try {
       if (editingPatient) {
-        await axios.put(`${getApiUrl()}/patients/${editingPatient.id}`, formData);
+        console.log('🔄 Updating patient with ID:', editingPatient.id);
+        console.log('🔄 Form data:', formData);
+        console.log('🔄 API URL:', getApiUrl());
+        console.log('🔄 Request URL:', `${getApiUrl()}/patients/${editingPatient.id}`);
+        
+        const response = await axios.put(`${getApiUrl()}/patients/${editingPatient.id}`, formData);
+        console.log('✅ Patient update response:', response);
         toast.success('Patient updated successfully');
       } else {
-        await axios.post(`${getApiUrl()}/patients`, formData);
+        console.log('🔄 Creating new patient');
+        console.log('🔄 Form data:', formData);
+        
+        const response = await axios.post(`${getApiUrl()}/patients`, formData);
+        console.log('✅ Patient creation response:', response);
         toast.success('Patient created successfully');
       }
       
@@ -1208,7 +1218,22 @@ const PatientManagement = () => {
       resetForm();
       fetchPatients();
     } catch (error) {
-      toast.error('Operation failed');
+      console.error('❌ Patient operation failed:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error message:', error.response?.data);
+      
+      if (error.response?.status === 401) {
+        toast.error('Authentication failed. Please log in again.');
+      } else if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this operation.');
+      } else if (error.response?.status === 404) {
+        toast.error('Patient not found.');
+      } else if (error.response?.data?.detail) {
+        toast.error(`Operation failed: ${error.response.data.detail}`);
+      } else {
+        toast.error('Operation failed. Check console for details.');
+      }
     }
   };
 

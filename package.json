@@ -1,0 +1,121 @@
+{
+  "name": "pac-desktop",
+  "version": "1.0.0",
+  "description": "PAC Medical Image Management System - Desktop Application",
+  "main": "electron-main-standalone.js",
+  "scripts": {
+    "electron": "electron .",
+    "electron-dev": "NODE_ENV=development electron .",
+    "start": "electron .",
+    "build-frontend": "npm run build --prefix frontend",
+    "build-backend": "pyinstaller backend_launcher.py --onefile --name pac_backend --hidden-import=fastapi --hidden-import=uvicorn --hidden-import=sqlalchemy.dialects.postgresql --hidden-import=psycopg2 --hidden-import=asyncpg --hidden-import=passlib.handlers.bcrypt --hidden-import=bcrypt --hidden-import=passlib.context --add-data \".env;.\" --add-data \"backend;backend\"",
+    "build-all": "npm run build-frontend && npm run build-backend",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never",
+    "pack": "electron-builder --dir",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adole007/PAC.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/adole007/PAC/issues"
+  },
+  "homepage": "https://github.com/adole007/PAC#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "electron": "^37.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.pac.medical.desktop",
+    "productName": "PAC Medical System",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main-standalone.js",
+      "frontend/build/**/*",
+      "dist/pac_backend.exe",
+      ".env",
+      "node_modules/express/**/*",
+      "node_modules/electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist/pac_backend.exe",
+        "to": "pac_backend.exe"
+      },
+      {
+        "from": "frontend/build",
+        "to": "frontend/build",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
