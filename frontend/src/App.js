@@ -4,6 +4,8 @@ import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   User, 
   Users, 
@@ -581,6 +583,232 @@ useEffect(() => {
   );
 };
 
+// PatientImagesList Dropdown Component
+const PatientImagesList = ({ patient, selectedImages, onImageSelection, isDarkMode }) => {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [patientImages, setPatientImages] = useState([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const fetchPatientImages = async () => {
+    if (!patient?.id || patientImages.length > 0) return;
+    
+    setLoadingImages(true);
+    try {
+      const response = await axios.get(`${getApiUrl()}/patients/${patient.id}/images`);
+      setPatientImages(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patient images:', error);
+      toast.error('Failed to load patient images');
+    } finally {
+      setLoadingImages(false);
+    }
+  };
+
+  const handleDropdownToggle = () => {
+    if (!showDropdown && patientImages.length === 0) {
+      fetchPatientImages();
+    }
+    setShowDropdown(!showDropdown);
+  };
+
+  const selectedImageIds = Object.keys(selectedImages).filter(key => selectedImages[key]);
+  const patientSelectedCount = selectedImageIds.filter(key => key.startsWith(`${patient.id}_`)).length;
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="relative">
+        <button
+          onClick={handleDropdownToggle}
+          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
+            isDarkMode
+              ? 'text-slate-200 border-slate-600 hover:bg-slate-700'
+              : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+          } ${showDropdown ? (isDarkMode ? 'bg-slate-700' : 'bg-gray-100') : ''}`}
+          title="Select images for PDF export"
+        >
+          <ImageIcon className="w-3 h-3 mr-1" />
+          <span>Select Images</span>
+          {patientSelectedCount > 0 && (
+            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+              isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+            }`}>
+              {patientSelectedCount}
+            </span>
+          )}
+          <svg 
+            className={`ml-1 w-3 h-3 transition-transform duration-200 ${
+              showDropdown ? 'transform rotate-180' : ''
+            }`}
+            fill="currentColor" 
+            viewBox="0 0 20 20"
+          >
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+        
+        {showDropdown && (
+          <div className={`absolute top-full right-0 mt-1 w-80 max-h-96 overflow-hidden rounded-lg shadow-xl border z-50 ${
+            isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+          }`}>
+            <div className={`px-4 py-3 border-b ${
+              isDarkMode ? 'border-slate-700 bg-slate-750' : 'border-gray-200 bg-gray-50'
+            }`}>
+              <h4 className={`text-sm font-semibold ${
+                isDarkMode ? 'text-slate-100' : 'text-gray-800'
+              }`}>
+                {patient.first_name} {patient.last_name} - Medical Images
+              </h4>
+              <p className={`text-xs mt-1 ${
+                isDarkMode ? 'text-slate-400' : 'text-gray-600'
+              }`}>
+                Select images to include in PDF report
+              </p>
+            </div>
+            
+            <div className="overflow-y-auto max-h-80">
+              {loadingImages ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${
+                    isDarkMode ? 'border-blue-500' : 'border-blue-600'
+                  }`}></div>
+                  <span className={`ml-3 text-sm ${isDarkMode ? 'text-slate-400' : 'text-gray-600'}`}>Loading images...</span>
+                </div>
+              ) : patientImages.length > 0 ? (
+                <div className="p-3 space-y-2">
+                  {patientImages.map((image) => {
+                    const key = `${patient.id}_${image.id}`;
+                    const isSelected = selectedImages[key] || false;
+                    
+                    return (
+                      <div key={image.id} className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                        isSelected 
+                          ? (isDarkMode ? 'bg-blue-900/30 border-blue-600' : 'bg-blue-50 border-blue-200')
+                          : (isDarkMode ? 'bg-slate-700/50 border-slate-600 hover:bg-slate-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100')
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => onImageSelection(patient.id, image.id)}
+                          className="flex-shrink-0 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <ThumbnailImage 
+                          imageId={image.id}
+                          thumbnailData={image.thumbnail_data}
+                          className="w-16 h-16 object-cover rounded-md flex-shrink-0 border border-gray-300"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${
+                            isDarkMode ? 'text-slate-100' : 'text-gray-900'
+                          }`}>
+                            {image.modality} - {image.body_part}
+                          </p>
+                          <p className={`text-xs truncate mt-1 ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            📅 {image.study_date} {image.study_time}
+                          </p>
+                          {image.clinician_notes && (
+                            <p className={`text-xs truncate mt-1 ${
+                              isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                            }`}>
+                              📝 {image.clinician_notes.substring(0, 50)}{image.clinician_notes.length > 50 ? '...' : ''}
+                            </p>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                            isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
+                          }`}>
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`text-center py-12 ${
+                  isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                }`}>
+                  <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-medium">No images found</p>
+                  <p className="text-xs mt-1">This patient has no medical images uploaded</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Bulk selection controls */}
+            {patientImages.length > 0 && (
+              <div className={`px-4 py-3 border-t flex items-center justify-between ${
+                isDarkMode ? 'border-slate-700 bg-slate-750' : 'border-gray-200 bg-gray-50'
+              }`}>
+                <div className={`text-xs ${
+                  isDarkMode ? 'text-slate-400' : 'text-gray-600'
+                }`}>
+                  {patientSelectedCount} of {patientImages.length} selected
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      patientImages.forEach(image => {
+                        const key = `${patient.id}_${image.id}`;
+                        if (!selectedImages[key]) {
+                          onImageSelection(patient.id, image.id);
+                        }
+                      });
+                    }}
+                    className={`text-xs font-medium transition-colors ${
+                      isDarkMode
+                        ? 'text-blue-400 hover:text-blue-300'
+                        : 'text-blue-600 hover:text-blue-500'
+                    }`}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => {
+                      patientImages.forEach(image => {
+                        const key = `${patient.id}_${image.id}`;
+                        if (selectedImages[key]) {
+                          onImageSelection(patient.id, image.id);
+                        }
+                      });
+                    }}
+                    className={`text-xs font-medium transition-colors ${
+                      isDarkMode
+                        ? 'text-slate-400 hover:text-slate-300'
+                        : 'text-gray-600 hover:text-gray-500'
+                    }`}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Patient Exams Component
 const PatientExams = () => {
   const [patients, setPatients] = useState([]);
@@ -648,6 +876,10 @@ const PatientExams = () => {
   const [patientImagesEdit, setPatientImagesEdit] = useState([]);
   const [imageEdits, setImageEdits] = useState({}); // { [imageId]: { modality, body_part, clinician_notes } }
   const [saving, setSaving] = useState(false);
+
+  // PDF generation state
+  const [selectedImages, setSelectedImages] = useState({});
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const openEdit = async (patient) => {
     setEditingPatient(patient);
@@ -747,6 +979,465 @@ const PatientExams = () => {
     }
   };
 
+  // Toggle image selection for PDF generation
+  const handleImageSelection = (patientId, imageId) => {
+    const key = `${patientId}_${imageId}`;
+    setSelectedImages(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Generate PDF with selected images
+  const generatePDF = async () => {
+    // Add debugging
+    console.log('generatePDF function called');
+    console.log('jsPDF available:', typeof jsPDF);
+    
+    const selectedKeys = Object.keys(selectedImages).filter(key => selectedImages[key]);
+    console.log('Selected keys:', selectedKeys);
+    
+    if (selectedKeys.length === 0) {
+      toast.error('Please select at least one image to include in the PDF');
+      return;
+    }
+
+    setGeneratingPdf(true);
+
+    try {
+      console.log('Creating new jsPDF document');
+      // Create new jsPDF document with proper orientation
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      console.log('jsPDF instance created:', pdf);
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      const contentHeight = pageHeight - 2 * margin;
+      
+      console.log('PDF dimensions:', { pageWidth, pageHeight, contentWidth, contentHeight });
+
+      // Group selected images by patient
+      const imagesByPatient = {};
+      
+      console.log('Available patients:', patients.map(p => ({id: p.id, name: `${p.first_name} ${p.last_name}`})));
+      
+      for (const key of selectedKeys) {
+        const [patientId, imageId] = key.split('_');
+        console.log('Processing key:', key, 'patientId:', patientId, 'imageId:', imageId);
+        
+        if (!imagesByPatient[patientId]) {
+          // Try to find patient by ID (could be string UUID or numeric ID)
+          const patient = patients.find(p => p.id === patientId || p.id === parseInt(patientId) || p.id.toString() === patientId);
+          console.log('Found patient:', patient ? `${patient.first_name} ${patient.last_name}` : 'NOT FOUND');
+          console.log('Patient ID type comparison:', { 
+            searchingFor: patientId, 
+            searchingForType: typeof patientId,
+            availableIds: patients.map(p => ({ id: p.id, type: typeof p.id })) 
+          });
+          
+          if (!patient) {
+            console.error('Patient not found for ID:', patientId);
+            toast.error(`Patient not found for ID: ${patientId}`);
+            continue;
+          }
+          
+          imagesByPatient[patientId] = {
+            patient,
+            images: []
+          };
+        }
+        
+        try {
+          // Fetch patient images to get the specific image
+          console.log('Fetching images for patient:', patientId);
+          const response = await axios.get(`${getApiUrl()}/patients/${patientId}/images`);
+          console.log('Patient images response:', response.data.length, 'images');
+          console.log('Looking for image with ID:', imageId, 'type:', typeof imageId);
+          console.log('Available image IDs:', response.data.map(img => ({id: img.id, type: typeof img.id})));
+          
+          // Try multiple comparison methods to handle different ID types (UUID strings, numbers, etc.)
+          const image = response.data.find(img => 
+            img.id === imageId || 
+            img.id === parseInt(imageId) || 
+            img.id.toString() === imageId.toString()
+          );
+          
+          if (image) {
+            console.log('Found matching image:', image.id, 'modality:', image.modality, 'body_part:', image.body_part);
+            console.log('Image has clinician_notes:', !!image.clinician_notes, image.clinician_notes?.substring(0, 100));
+            imagesByPatient[patientId].images.push(image);
+          } else {
+            console.error('Image not found for ID:', imageId);
+            console.error('Available images:', response.data.map(img => ({id: img.id, modality: img.modality, body_part: img.body_part})));
+          }
+        } catch (error) {
+          console.error('Error fetching patient images:', error);
+        }
+      }
+
+      console.log('=== PDF Generation Summary ===');
+      console.log('Total patients to process:', Object.keys(imagesByPatient).length);
+      for (const [patientId, patientData] of Object.entries(imagesByPatient)) {
+        console.log(`Patient ${patientId}: ${patientData.patient.first_name} ${patientData.patient.last_name} - ${patientData.images.length} images`);
+        patientData.images.forEach((img, idx) => {
+          console.log(`  Image ${idx + 1}: ${img.modality} - ${img.body_part} (ID: ${img.id})`);
+          console.log(`    Clinician notes: ${img.clinician_notes ? img.clinician_notes.substring(0, 100) + '...' : 'None'}`);
+        });
+      }
+      console.log('=================================');
+
+      let isFirstPage = true;
+      let reportNumber = `MIR-${Date.now()}`;
+
+      // Process each patient
+      for (const [patientId, patientData] of Object.entries(imagesByPatient)) {
+        const { patient, images } = patientData;
+        
+        if (!isFirstPage) {
+          pdf.addPage();
+        }
+        isFirstPage = false;
+
+        // Professional Header with Logo Space and Letterhead
+        pdf.setFillColor(31, 81, 153); // Professional blue header
+        pdf.rect(0, 0, pageWidth, 35, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('JAJUWA HEALTHCARE', margin, 18);
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Medical Imaging Department', margin, 26);
+        pdf.text('Digital Radiology Services', margin, 32);
+        
+        // Report number and date in header
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('MEDICAL IMAGING REPORT', pageWidth - margin - 60, 18);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Report #: ${reportNumber}`, pageWidth - margin - 60, 26);
+        pdf.text(`Generated: ${new Date().toLocaleDateString('en-US')}`, pageWidth - margin - 60, 32);
+        
+        // Reset text color
+        pdf.setTextColor(0, 0, 0);
+        
+        let yPosition = 50;
+        
+        // Professional Patient Information Section
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(margin, yPosition, contentWidth, 55, 'F');
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin, yPosition, contentWidth, 55, 'S');
+        
+        yPosition += 10;
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('PATIENT INFORMATION', margin + 5, yPosition);
+        
+        yPosition += 12;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        
+        // Two-column layout for patient info
+        const leftColumnX = margin + 5;
+        const rightColumnX = margin + (contentWidth / 2) + 5;
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Patient Name:', leftColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${patient.first_name} ${patient.last_name}`, leftColumnX + 30, yPosition);
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Date of Birth:', rightColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(patient.date_of_birth, rightColumnX + 30, yPosition);
+        
+        yPosition += 8;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Patient ID:', leftColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(patient.patient_id, leftColumnX + 30, yPosition);
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Gender:', rightColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(patient.gender || 'Not specified', rightColumnX + 30, yPosition);
+        
+        yPosition += 8;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('MRN:', leftColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(patient.medical_record_number || 'N/A', leftColumnX + 30, yPosition);
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Referring Physician:', rightColumnX, yPosition);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(patient.primary_physician || 'Not specified', rightColumnX + 30, yPosition);
+        
+        yPosition += 8;
+        if (patient.insurance_provider) {
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Insurance:', leftColumnX, yPosition);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(patient.insurance_provider, leftColumnX + 30, yPosition);
+        }
+        
+        yPosition += 25;
+        
+        // Study Information Summary
+        pdf.setFillColor(250, 250, 250);
+        pdf.rect(margin, yPosition, contentWidth, 25, 'F');
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(margin, yPosition, contentWidth, 25, 'S');
+        
+        yPosition += 10;
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('STUDY SUMMARY', margin + 5, yPosition);
+        
+        yPosition += 8;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        
+        const modalitySet = new Set(images.map(img => img.modality));
+        const bodyPartSet = new Set(images.map(img => img.body_part));
+        
+        pdf.text(`Total Images: ${images.length}`, leftColumnX, yPosition);
+        pdf.text(`Modalities: ${Array.from(modalitySet).join(', ')}`, rightColumnX, yPosition);
+        
+        yPosition += 30;
+
+        // Add images with professional formatting
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          
+          // Check if we need a new page for this image
+          const estimatedImageHeight = 120; // Estimate including headers and notes
+          if (yPosition + estimatedImageHeight > pageHeight - margin - 30) {
+            pdf.addPage();
+            yPosition = margin + 20;
+          }
+          
+          try {
+            // Image section header
+            pdf.setFillColor(235, 245, 255);
+            pdf.rect(margin, yPosition, contentWidth, 20, 'F');
+            pdf.setDrawColor(100, 150, 200);
+            pdf.rect(margin, yPosition, contentWidth, 20, 'S');
+            
+            yPosition += 6;
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(31, 81, 153);
+            pdf.text(`IMAGE ${i + 1}: ${image.modality} - ${image.body_part}`, margin + 5, yPosition);
+            
+            yPosition += 8;
+            pdf.setFontSize(9);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`Study Date: ${image.study_date}    Study Time: ${image.study_time}    Image ID: ${image.id}`, margin + 5, yPosition);
+            
+            pdf.setTextColor(0, 0, 0);
+            yPosition += 10;
+            
+            // Fetch image data
+            const token = localStorage.getItem('token');
+            const isLocalBackend = getBackendUrl().includes('localhost');
+            const endpoint = isLocalBackend ? '/data' : '/data-base64';
+            const imageUrl = `${getApiUrl()}/images/${image.id}${endpoint}`;
+            
+            const response = await fetch(imageUrl, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (response.ok) {
+              let imageDataUrl;
+              
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                // Base64 endpoint
+                const data = await response.json();
+                if (data.format === 'base64') {
+                  imageDataUrl = `data:${data.media_type};base64,${data.image_data}`;
+                }
+              } else {
+                // Binary endpoint
+                const blob = await response.blob();
+                imageDataUrl = URL.createObjectURL(blob);
+              }
+              
+              if (imageDataUrl) {
+                // Load image to get dimensions
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                  img.onload = resolve;
+                  img.onerror = reject;
+                  img.src = imageDataUrl;
+                });
+                
+                // Professional image layout with border
+                const maxImageWidth = Math.min(120, contentWidth * 0.6);
+                const maxImageHeight = 80;
+                
+                const imgAspectRatio = img.width / img.height;
+                let imageWidth, imageHeight;
+                
+                if (imgAspectRatio > maxImageWidth / maxImageHeight) {
+                  imageWidth = maxImageWidth;
+                  imageHeight = imageWidth / imgAspectRatio;
+                } else {
+                  imageHeight = maxImageHeight;
+                  imageWidth = imageHeight * imgAspectRatio;
+                }
+                
+                const imageX = margin + 5;
+                const imageY = yPosition;
+                
+                // Image border
+                pdf.setDrawColor(150, 150, 150);
+                pdf.setLineWidth(0.5);
+                pdf.rect(imageX - 2, imageY - 2, imageWidth + 4, imageHeight + 4, 'S');
+                
+                // Add the image
+                pdf.addImage(imageDataUrl, 'JPEG', imageX, imageY, imageWidth, imageHeight);
+                
+                // Clinical notes section beside image
+                const notesX = imageX + imageWidth + 15;
+                const notesWidth = contentWidth - (imageWidth + 20);
+                
+                if (image.clinician_notes && image.clinician_notes.trim()) {
+                  pdf.setFontSize(10);
+                  pdf.setFont('helvetica', 'bold');
+                  pdf.text('CLINICAL OBSERVATIONS:', notesX, yPosition + 5);
+                  
+                  pdf.setFont('helvetica', 'normal');
+                  pdf.setFontSize(9);
+                  
+                  const notes = image.clinician_notes;
+                  const lines = pdf.splitTextToSize(notes, notesWidth);
+                  
+                  let notesY = yPosition + 12;
+                  for (const line of lines) {
+                    if (notesY > pageHeight - margin - 20) {
+                      // Start new page if notes are too long
+                      pdf.addPage();
+                      notesY = margin + 20;
+                    }
+                    pdf.text(line, notesX, notesY);
+                    notesY += 5;
+                  }
+                } else {
+                  pdf.setFontSize(9);
+                  pdf.setFont('helvetica', 'italic');
+                  pdf.setTextColor(150, 150, 150);
+                  pdf.text('No clinical observations recorded.', notesX, yPosition + 5);
+                  pdf.setTextColor(0, 0, 0);
+                }
+                
+                yPosition += Math.max(imageHeight + 10, 50);
+                
+                // Add technical details section
+                pdf.setFillColor(248, 248, 248);
+                pdf.rect(margin, yPosition, contentWidth, 15, 'F');
+                
+                yPosition += 5;
+                pdf.setFontSize(8);
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(100, 100, 100);
+                
+                let techDetails = `Resolution: ${img.width}x${img.height}px`;
+                if (image.institution_name) techDetails += `  |  Institution: ${image.institution_name}`;
+                if (image.series_id) techDetails += `  |  Series: ${image.series_id}`;
+                
+                pdf.text(techDetails, margin + 5, yPosition);
+                pdf.setTextColor(0, 0, 0);
+                
+                yPosition += 15;
+                
+                // Clean up blob URL if created
+                if (imageDataUrl.startsWith('blob:')) {
+                  URL.revokeObjectURL(imageDataUrl);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error adding image to PDF:', error);
+            
+            // Professional error display
+            pdf.setFillColor(255, 245, 245);
+            pdf.rect(margin, yPosition, contentWidth, 25, 'F');
+            pdf.setDrawColor(200, 100, 100);
+            pdf.rect(margin, yPosition, contentWidth, 25, 'S');
+            
+            yPosition += 8;
+            pdf.setFontSize(10);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(180, 50, 50);
+            pdf.text(`IMAGE ${i + 1}: ${image.modality} - ${image.body_part}`, margin + 5, yPosition);
+            
+            yPosition += 8;
+            pdf.setFont('helvetica', 'normal');
+            pdf.text('Image could not be loaded for this report.', margin + 5, yPosition);
+            pdf.setTextColor(0, 0, 0);
+            
+            yPosition += 15;
+          }
+        }
+        
+        // Professional Footer
+        const footerY = pageHeight - 25;
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+        
+        pdf.setFontSize(8);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(100, 100, 100);
+        
+        pdf.text('JAJUWA HEALTHCARE - Digital Medical Imaging Services', margin, footerY);
+        pdf.text('This report was generated electronically and contains confidential medical information.', margin, footerY + 5);
+        pdf.text(`Report #: ${reportNumber}`, pageWidth - margin - 40, footerY);
+        pdf.text(`Page 1 of 1`, pageWidth - margin - 40, footerY + 5);
+        
+        pdf.setTextColor(0, 0, 0);
+      }
+
+      // Save the PDF
+      console.log('Preparing to save PDF');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `Medical_Images_Report_${timestamp}.pdf`;
+      
+      try {
+        // Force the PDF to be downloaded as a file
+        pdf.save(filename);
+        console.log('PDF saved with filename:', filename);
+        toast.success('PDF report generated successfully!');
+      } catch (saveError) {
+        console.error('Error saving PDF:', saveError);
+        toast.error('Error saving PDF file: ' + saveError.message);
+      }
+      
+      // Clear selections
+      setSelectedImages({});
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      console.error('Error details:', error.stack);
+      toast.error(`Failed to generate PDF report: ${error.message}`);
+    } finally {
+      console.log('PDF generation process complete');
+      setGeneratingPdf(false);
+    }
+  };
+
   // Filter patients based on search term
   const filteredPatients = patients.filter(patient =>
     patient.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -766,166 +1457,228 @@ const PatientExams = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with PDF Export Controls */}
       <div className="flex justify-between items-center">
         <h1 className={`text-3xl font-bold ${
           isDarkMode ? 'text-slate-100' : 'text-gray-800'
         }`}>Patient Exams</h1>
+        
+        <div className="flex items-center space-x-4">
+          {Object.keys(selectedImages).filter(key => selectedImages[key]).length > 0 && (
+            <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
+              isDarkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-700' : 'bg-blue-50 text-blue-700 border border-blue-200'
+            }`}>
+              📊 {Object.keys(selectedImages).filter(key => selectedImages[key]).length} image(s) selected for report
+            </div>
+          )}
+          <button
+            onClick={generatePDF}
+            disabled={generatingPdf || Object.keys(selectedImages).filter(key => selectedImages[key]).length === 0}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm ${
+              isDarkMode
+                ? 'bg-green-600 hover:bg-green-700 text-white hover:shadow-md'
+                : 'bg-green-600 hover:bg-green-700 text-white hover:shadow-md'
+            }`}
+            title="Generate comprehensive PDF report with selected images"
+          >
+            {generatingPdf ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Generating PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-5 h-5" />
+                <span>Export PDF Report</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className={`rounded-lg shadow-sm border ${
+      {/* Search Bar */}
+      <div className={`rounded-lg shadow-sm border p-4 ${
         isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
       }`}>
-        <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-              isDarkMode ? 'text-slate-400' : 'text-gray-400'
-            }`} />
-            <input
-              type="text"
-              placeholder="Search patients..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                isDarkMode 
-                  ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400' 
-                  : 'border-gray-300 text-gray-900'
-              }`}
-            />
-          </div>
+        <div className="relative max-w-md">
+          <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
+            isDarkMode ? 'text-slate-400' : 'text-gray-400'
+          }`} />
+          <input
+            type="text"
+            placeholder="Search patients by name or ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+              isDarkMode 
+                ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400' 
+                : 'border-gray-300 text-gray-900 placeholder-gray-500'
+            }`}
+          />
         </div>
+      </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className={isDarkMode ? 'bg-slate-700' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Patient ID
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Name
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Date of Birth
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Images Count
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Clinician
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Exam Status
-                </th>
-                <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${
-                  isDarkMode ? 'text-slate-300' : 'text-gray-500'
-                }`}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${
-              isDarkMode ? 'bg-slate-800 divide-slate-700' : 'bg-white divide-gray-200'
-            }`}>
-              {filteredPatients.map((patient) => {
-                const imageCount = patientImageCounts[patient.id] || 0;
-                const hasImages = imageCount > 0;
-                
-                return (
-                  <tr key={patient.id} className={`hover:${
-                    isDarkMode ? 'bg-slate-700' : 'bg-gray-50'
-                  }`}>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                      isDarkMode ? 'text-slate-100' : 'text-gray-900'
-                    }`}>
-                      {patient.patient_id}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
-                    }`}>
-                      <div className="flex items-center space-x-2">
-                        <UserIcon className="w-4 h-4" />
-                        <span>{patient.first_name} {patient.last_name}</span>
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
-                    }`}>
-                      {patient.date_of_birth}
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
-                    }`}>
-                      <div className="flex items-center space-x-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          hasImages 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+      {/* Patient Cards Grid - More spacious layout */}
+      <div className="grid gap-6">
+        {filteredPatients.length > 0 ? (
+          filteredPatients.map((patient) => {
+            const imageCount = patientImageCounts[patient.id] || 0;
+            const hasImages = imageCount > 0;
+            const selectedCount = Object.keys(selectedImages)
+              .filter(key => selectedImages[key] && key.startsWith(`${patient.id}_`)).length;
+            
+            return (
+              <div key={patient.id} className={`rounded-lg shadow-sm border transition-all hover:shadow-md ${
+                isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'
+              } ${selectedCount > 0 ? (isDarkMode ? 'ring-2 ring-blue-500/30 bg-blue-900/10' : 'ring-2 ring-blue-200 bg-blue-50/30') : ''}`}>
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    {/* Patient Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <div className={`p-2 rounded-full ${
+                          isDarkMode ? 'bg-blue-900/30' : 'bg-blue-100'
                         }`}>
-                          {imageCount} {imageCount === 1 ? 'image' : 'images'}
-                        </span>
+                          <UserIcon className={`w-5 h-5 ${
+                            isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                          }`} />
+                        </div>
+                        <div>
+                          <h3 className={`text-lg font-semibold ${
+                            isDarkMode ? 'text-slate-100' : 'text-gray-900'
+                          }`}>
+                            {patient.first_name} {patient.last_name}
+                          </h3>
+                          <p className={`text-sm ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            Patient ID: {patient.patient_id}
+                          </p>
+                        </div>
                       </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
-                    }`}>
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          patient.primary_physician ? 'bg-green-500' : 'bg-gray-400'
-                        }`}></div>
-                        <span>{patient.primary_physician || 'Not assigned'}</span>
+
+                      {/* Patient Details Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                          <p className={`text-xs font-medium uppercase tracking-wide ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            Date of Birth
+                          </p>
+                          <p className={`text-sm font-medium ${
+                            isDarkMode ? 'text-slate-200' : 'text-gray-900'
+                          }`}>
+                            {patient.date_of_birth}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs font-medium uppercase tracking-wide ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            Medical Images
+                          </p>
+                          <div className="flex items-center space-x-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              hasImages 
+                                ? (isDarkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800')
+                                : (isDarkMode ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-800')
+                            }`}>
+                              {imageCount} {imageCount === 1 ? 'image' : 'images'}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className={`text-xs font-medium uppercase tracking-wide ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            Primary Physician
+                          </p>
+                          <p className={`text-sm font-medium ${
+                            isDarkMode ? 'text-slate-200' : 'text-gray-900'
+                          }`}>
+                            {patient.primary_physician || 'Not assigned'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className={`text-xs font-medium uppercase tracking-wide ${
+                            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                          }`}>
+                            Status
+                          </p>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            hasImages 
+                              ? (isDarkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-800')
+                              : (isDarkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-800')
+                          }`}>
+                            {hasImages ? 'Ready for Review' : 'Pending Images'}
+                          </span>
+                        </div>
                       </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                      isDarkMode ? 'text-slate-300' : 'text-gray-600'
-                    }`}>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        hasImages 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {hasImages ? 'Ready for Review' : 'Pending Images'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+
+                      {/* Selection Status */}
+                      {selectedCount > 0 && (
+                        <div className={`mb-4 p-3 rounded-lg border-l-4 ${
+                          isDarkMode 
+                            ? 'bg-blue-900/20 border-blue-500 text-blue-300' 
+                            : 'bg-blue-50 border-blue-400 text-blue-700'
+                        }`}>
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-medium">
+                              {selectedCount} image{selectedCount === 1 ? '' : 's'} selected for PDF report
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions Column */}
+                    <div className="flex items-start space-x-3 ml-6">
                       <button
                         onClick={() => openEdit(patient)}
-                        className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                        className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
                           isDarkMode
                             ? 'text-slate-200 border-slate-600 hover:bg-slate-700'
-                            : 'text-gray-700 border-gray-300 hover:bg-gray-100'
+                            : 'text-gray-700 border-gray-300 hover:bg-gray-50'
                         }`}
-                        title="Edit patient"
+                        title="Edit patient information"
                       >
-                        <Edit className="w-4 h-4 mr-2" /> Edit
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        
-        {filteredPatients.length === 0 && (
-          <div className={`text-center py-8 ${
-            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+                      
+                      {hasImages && (
+                        <PatientImagesList
+                          patient={patient}
+                          selectedImages={selectedImages}
+                          onImageSelection={handleImageSelection}
+                          isDarkMode={isDarkMode}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className={`text-center py-16 rounded-lg border-2 border-dashed ${
+            isDarkMode 
+              ? 'border-slate-700 bg-slate-800/50 text-slate-400' 
+              : 'border-gray-300 bg-gray-50 text-gray-500'
           }`}>
-            <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>No patient exams found</p>
-            {searchTerm && (
-              <p className="text-sm mt-2">Try adjusting your search terms</p>
+            <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <h3 className={`text-lg font-medium mb-2 ${
+              isDarkMode ? 'text-slate-300' : 'text-gray-700'
+            }`}>
+              No patient exams found
+            </h3>
+            {searchTerm ? (
+              <p className="text-sm">No patients match your search "<span className="font-medium">{searchTerm}</span>"</p>
+            ) : (
+              <p className="text-sm">No patients with medical images available</p>
             )}
           </div>
         )}

@@ -1,0 +1,83 @@
+# Desktop application files - exclude from Vercel
+*.exe
+*.bat
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.pkg
+*.pyz
+*.asar
+dist/
+build/
+electron-main*.js
+backend_launcher.py
+backend_standalone.spec
+pac_backend.spec
+PAC-Desktop-Launcher.bat
+run-pac-desktop.bat
+README-DESKTOP.md
+
+# Node modules and caches
+node_modules/
+frontend/node_modules/
+**/.cache/
+*.pack
+
+# Android build files (mobile app)
+frontend/android/
+frontend/capacitor.config.json
+
+# Storage and temporary files
+storage/
+temp/
+tmp/
+
+# Large media files
+*.webp
+*.png
+*.jpg
+*.jpeg
+*.dcm
+*.dicom
+
+# Test files
+test_*.py
+*_test.py
+
+# Log files
+*.log
+logs/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (except those needed for production)
+.env.local
+.env.development
+.env.test
+
+# Build artifacts we don't need
+yarn.lock
+frontend/yarn.lock
+package-lock.json
+frontend/package-lock.json
+
+# Large HTML files (but keep essential ones)
+LICENSES.chromium.html
+xref-*.html
+
+# App builder binaries
+app-builder*
+
+# Electron specific files
+LICENSES.chromium.html
+
+# Webpack cache and build files
+.webpack/
+.parcel-cache/
